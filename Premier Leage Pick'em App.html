@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premier League Pick'em</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            padding: 2rem;
+        }
+        .bg-gray-100 {
+            background-color: #f9fafb;
+        }
+        .btn-primary {
+            @apply bg-blue-600 text-white font-bold py-2 px-4 rounded-md shadow-md hover:bg-blue-700 transition duration-300;
+        }
+        .btn-secondary {
+            @apply bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-md hover:bg-gray-500 transition duration-300;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 min-h-screen flex flex-col items-center">
+
+<div id="app" class="container bg-white rounded-xl shadow-lg p-6 lg:p-10 my-8">
+    <h1 class="text-4xl font-extrabold text-center text-blue-800 mb-2">Premier League Pick'em</h1>
+    <p class="text-center text-gray-500 mb-8">Make your weekly picks and track the leaderboard.</p>
+
+    <!-- Player Management Section -->
+    <div id="player-manager" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Add Players</h2>
+        <div class="flex flex-col sm:flex-row gap-4 mb-4">
+            <input type="text" id="playerNameInput" placeholder="Enter player name" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button id="addPlayerBtn" class="btn-primary w-full sm:w-auto">Add Player</button>
+        </div>
+        <div id="playerList" class="flex flex-wrap gap-2">
+            <!-- Player tags will be injected here by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Weekly Picks Section -->
+    <div id="picks-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Make Your Picks</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label for="playerSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Player</label>
+                <select id="playerSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" disabled selected>Choose a player</option>
+                </select>
+            </div>
+            <div>
+                <label for="teamSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
+                <select id="teamSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" disabled selected>Choose a team</option>
+                </select>
+            </div>
+            <div class="col-span-1 md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Home or Away</label>
+                <div class="flex gap-4">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="homeAway" value="Home" class="form-radio text-blue-600">
+                        <span class="ml-2">Home</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="homeAway" value="Away" class="form-radio text-blue-600">
+                        <span class="ml-2">Away</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button id="submitPickBtn" class="btn-primary" disabled>Submit Pick</button>
+        </div>
+        <div id="pickMessage" class="mt-4 text-center text-red-500"></div>
+    </div>
+
+    <!-- Game Results Section -->
+    <div id="results-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Enter Weekly Results</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white rounded-lg shadow">
+                <thead>
+                    <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                        <th class="py-3 px-6 text-left">Team</th>
+                        <th class="py-3 px-6 text-left">Result</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody" class="text-gray-600 text-sm font-light">
+                    <!-- Teams to be injected here -->
+                </tbody>
+            </table>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button id="updateScoresBtn" class="btn-primary">Update Scores</button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Section -->
+    <div id="leaderboard-section" class="bg-white p-6 rounded-lg shadow-lg">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Leaderboard</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white rounded-lg shadow">
+                <thead>
+                    <tr class="bg-blue-600 text-white uppercase text-sm leading-normal">
+                        <th class="py-3 px-6 text-left rounded-tl-lg">Rank</th>
+                        <th class="py-3 px-6 text-left">Player</th>
+                        <th class="py-3 px-6 text-left rounded-tr-lg">Total Points</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardTableBody" class="text-gray-600 text-sm font-light">
+                    <!-- Leaderboard will be injected here -->
+                    <tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // JavaScript for the Premier League Pick'em App
+    
+    // --- Data Model & Initial State ---
+    const TEAMS = [
+        "AFC Bournemouth", "Arsenal", "Aston Villa", "Brentford", "Brighton & Hove Albion",
+        "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham", "Leeds United",
+        "Liverpool", "Manchester City", "Manchester United", "Newcastle United",
+        "Nottingham Forest", "Sunderland", "Tottenham Hotspur", "West Ham United",
+        "Wolverhampton Wanderers"
+    ].sort();
+
+    let players = JSON.parse(localStorage.getItem('players')) || [];
+    let picks = JSON.parse(localStorage.getItem('picks')) || {};
+    let scores = JSON.parse(localStorage.getItem('scores')) || {};
+
+    // --- DOM Elements ---
+    const addPlayerBtn = document.getElementById('addPlayerBtn');
+    const playerNameInput = document.getElementById('playerNameInput');
+    const playerList = document.getElementById('playerList');
+    const playerSelect = document.getElementById('playerSelect');
+    const teamSelect = document.getElementById('teamSelect');
+    const submitPickBtn = document.getElementById('submitPickBtn');
+    const pickMessage = document.getElementById('pickMessage');
+    const resultsTableBody = document.getElementById('resultsTableBody');
+    const updateScoresBtn = document.getElementById('updateScoresBtn');
+    const leaderboardTableBody = document.getElementById('leaderboardTableBody');
+
+    // --- Utility Functions ---
+
+    /**
+     * Saves all data to local storage.
+     */
+    function saveData() {
+        localStorage.setItem('players', JSON.stringify(players));
+        localStorage.setItem('picks', JSON.stringify(picks));
+        localStorage.setItem('scores', JSON.stringify(scores));
+    }
+
+    /**
+     * Renders the list of players as interactive tags.
+     */
+    function renderPlayers() {
+        playerList.innerHTML = players.map(name => `
+            <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                ${name}
+            </span>
+        `).join('');
+
+        playerSelect.innerHTML = '<option value="" disabled selected>Choose a player</option>';
+        players.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            playerSelect.appendChild(option);
+        });
+    }
+
+    /**
+     * Renders the team dropdown for picking.
+     */
+    function renderTeams() {
+        teamSelect.innerHTML = '<option value="" disabled selected>Choose a team</option>';
+        TEAMS.forEach(team => {
+            const option = document.createElement('option');
+            option.value = team;
+            option.textContent = team;
+            teamSelect.appendChild(option);
+        });
+    }
+
+    /**
+     * Renders the table for entering weekly results.
+     */
+    function renderResultsTable() {
+        resultsTableBody.innerHTML = TEAMS.map(team => `
+            <tr class="border-b border-gray-200 hover:bg-gray-100">
+                <td class="py-3 px-6 text-left whitespace-nowrap font-medium">${team}</td>
+                <td class="py-3 px-6 text-left">
+                    <select data-team="${team}" class="result-select w-full p-2 rounded-md border border-gray-300">
+                        <option value="Pending">Pending</option>
+                        <option value="Win">Win</option>
+                        <option value="Loss">Loss</option>
+                        <option value="Draw">Draw</option>
+                    </select>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    /**
+     * Renders the leaderboard based on current scores.
+     */
+    function renderLeaderboard() {
+        const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a);
+
+        if (sortedScores.length === 0) {
+            leaderboardTableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>';
+            return;
+        }
+
+        leaderboardTableBody.innerHTML = sortedScores.map(([player, score], index) => `
+            <tr class="border-b border-gray-200 last:border-b-0 hover:bg-gray-100">
+                <td class="py-3 px-6 text-left font-medium">${index + 1}</td>
+                <td class="py-3 px-6 text-left">${player}</td>
+                <td class="py-3 px-6 text-left font-bold text-blue-600">${score}</td>
+            </tr>
+        `).join('');
+    }
+
+    /**
+     * Checks if a player has already picked a team Home/Away twice.
+     * @param {string} player The player's name.
+     * @param {string} team The team they are picking.
+     * @param {string} homeAway The home or away status.
+     * @returns {boolean} True if the pick is valid, false otherwise.
+     */
+    function isPickValid(player, team, homeAway) {
+        if (!picks[player]) {
+            return true;
+        }
+        
+        let count = 0;
+        for (const pick of picks[player]) {
+            if (pick.team === team && pick.homeAway === homeAway) {
+                count++;
+            }
+        }
+        
+        return count < 1; // Allows a single pick per team per Home/Away status
+    }
+
+    // --- Event Listeners ---
+
+    addPlayerBtn.addEventListener('click', () => {
+        const name = playerNameInput.value.trim();
+        if (name && !players.includes(name)) {
+            players.push(name);
+            scores[name] = 0;
+            picks[name] = [];
+            saveData();
+            renderPlayers();
+            playerNameInput.value = '';
+            updateSubmitButtonState();
+            renderLeaderboard();
+        }
+    });
+
+    submitPickBtn.addEventListener('click', () => {
+        const player = playerSelect.value;
+        const team = teamSelect.value;
+        const homeAway = document.querySelector('input[name="homeAway"]:checked').value;
+
+        if (isPickValid(player, team, homeAway)) {
+            picks[player].push({ week: 1, team: team, homeAway: homeAway, result: 'Pending' });
+            saveData();
+            pickMessage.textContent = 'Pick submitted successfully!';
+            pickMessage.classList.remove('text-red-500');
+            pickMessage.classList.add('text-green-600');
+            // Clear inputs after submission
+            playerSelect.value = '';
+            teamSelect.value = '';
+            document.querySelector('input[name="homeAway"]:checked').checked = false;
+        } else {
+            pickMessage.textContent = `${player} has already picked ${team} for a ${homeAway} game.`;
+            pickMessage.classList.remove('text-green-600');
+            pickMessage.classList.add('text-red-500');
+        }
+    });
+
+    updateScoresBtn.addEventListener('click', () => {
+        // Reset scores for this week before re-calculating
+        players.forEach(player => scores[player] = 0);
+
+        // Get results from the table
+        const results = {};
+        document.querySelectorAll('.result-select').forEach(select => {
+            const team = select.dataset.team;
+            results[team] = select.value;
+        });
+
+        // Loop through picks and update scores
+        for (const player in picks) {
+            picks[player].forEach(pick => {
+                const gameResult = results[pick.team];
+                if (gameResult === 'Win') {
+                    scores[player] += 3;
+                } else if (gameResult === 'Draw') {
+                    scores[player] += 1;
+                }
+            });
+        }
+        
+        saveData();
+        renderLeaderboard();
+        alert('Scores have been updated!');
+    });
+
+    // Update submit button state based on form inputs
+    document.querySelectorAll('#picks-section select, #picks-section input').forEach(input => {
+        input.addEventListener('change', updateSubmitButtonState);
+    });
+
+    function updateSubmitButtonState() {
+        const playerSelected = playerSelect.value !== '';
+        const teamSelected = teamSelect.value !== '';
+        const homeAwaySelected = document.querySelector('input[name="homeAway"]:checked');
+
+        if (playerSelected && teamSelected && homeAwaySelected) {
+            submitPickBtn.disabled = false;
+        } else {
+            submitPickBtn.disabled = true;
+        }
+    }
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        renderPlayers();
+        renderTeams();
+        renderResultsTable();
+        renderLeaderboard();
+    });
+
+</script>
+
+</body>
+</html>
