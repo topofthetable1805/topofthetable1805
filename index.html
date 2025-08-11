@@ -1,313 +1,448 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { getAuth, signInWithPhoneNumber, RecaptchaVerifier, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc, serverTimestamp, getDocs, where, deleteDoc } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top of the Table 1805</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            padding: 2rem;
+        }
+        .bg-gray-100 {
+            background-color: #f9fafb;
+        }
+        .btn-primary {
+            @apply bg-blue-600 text-white font-bold py-2 px-4 rounded-md shadow-md hover:bg-blue-700 transition duration-300;
+        }
+        .btn-secondary {
+            @apply bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-md hover:bg-gray-500 transition duration-300;
+        }
+        .page-link {
+            @apply px-4 py-2 rounded-md font-bold transition duration-300;
+        }
+        .page-link.active {
+            @apply bg-blue-600 text-white;
+        }
+        .page-link:not(.active) {
+            @apply text-gray-700 hover:bg-gray-200;
+        }
+    </style>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithPhoneNumber, RecaptchaVerifier, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc, serverTimestamp, getDocs, where, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "...", // Add your Firebase config here
-  authDomain: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
-};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+        // --- Firebase Initialization and Globals ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        
+        // PASTE YOUR FIREBASE CONFIGURATION HERE
+        const firebaseConfig = {
+          apiKey: "AIzaSyCyt8u-3s0DnxRiqmmuOvDiGAsYza1XepE",
+          authDomain: "top-of-the-table-1805.firebaseapp.com",
+          projectId: "top-of-the-table-1805",
+          storageBucket: "top-of-the-table-1805.firebasestorage.app",
+          messagingSenderId: "293669572169",
+          appId: "1:293669572169:web:c70cd442f0803fcb187998"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        let userId = null;
+        let userName = 'Anonymous';
+        let isAdmin = false;
+        let confirmationResult;
+        
+        // --- Admin Configuration ---
+        const ADMIN_PHONE_NUMBER = "+18139925685";
+        
+        // --- Firestore Collections ---
+        // These paths are correctly structured for Firestore
+        const publicDataCol = collection(db, 'artifacts', appId, 'public_data');
+        const playersRef = collection(publicDataCol, 'players');
+        const picksRef = collection(publicDataCol, 'picks');
+        const scoresRef = collection(publicDataCol, 'scores');
+        const chatRef = collection(publicDataCol, 'chat');
+        const gameRef = doc(publicDataCol, 'game_state');
+        
+        // --- Data Model & Initial State ---
+        const TEAMS = [
+            "AFC Bournemouth", "Arsenal", "Aston Villa", "Brentford", "Brighton & Hove Albion",
+            "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham", "Leeds United",
+            "Liverpool", "Manchester City", "Manchester United", "Newcastle United",
+            "Nottingham Forest", "Sunderland", "Tottenham Hotspur", "West Ham United",
+            "Wolverhampton Wanderers"
+        ].sort();
 
-const ADMIN_PHONE_NUMBER = "+18139925685";
-const TEAMS = [
-    "AFC Bournemouth", "Arsenal", "Aston Villa", "Brentford", "Brighton & Hove Albion",
-    "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham", "Leeds United",
-    "Liverpool", "Manchester City", "Manchester United", "Newcastle United",
-    "Nottingham Forest", "Sunderland", "Tottenham Hotspur", "West Ham United",
-    "Wolverhampton Wanderers"
-].sort();
+        let players = [];
+        let scores = {};
 
-// --- Firestore References ---
-const playersRef = collection(db, 'players');
-const picksRef = collection(db, 'picks');
-const scoresRef = collection(db, 'scores');
-const chatRef = collection(db, 'chat');
-const gameRef = doc(db, 'game_state', 'state');
+        // --- DOM Elements ---
+        const pages = {
+            login: document.getElementById('page-login'),
+            app: document.getElementById('page-app'),
+            leaderboard: document.getElementById('page-leaderboard'),
+            rules: document.getElementById('page-rules'),
+            chat: document.getElementById('page-chat'),
+            players: document.getElementById('page-players'),
+            admin: document.getElementById('page-admin')
+        };
+        const navLinks = {
+            app: document.getElementById('nav-app'),
+            leaderboard: document.getElementById('nav-leaderboard'),
+            rules: document.getElementById('nav-rules'),
+            chat: document.getElementById('nav-chat'),
+            players: document.getElementById('nav-players')
+        };
 
-// This is the App component that will contain all of your app's logic
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [players, setPlayers] = useState([]);
-  const [scores, setScores] = useState({});
-  const [isPickerLocked, setIsPickerLocked] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+        const loginPhoneNumberInput = document.getElementById('loginPhoneNumberInput');
+        const sendCodeBtn = document.getElementById('sendCodeBtn');
+        const loginCodeInput = document.getElementById('loginCodeInput');
+        const verifyCodeBtn = document.getElementById('verifyCodeBtn');
+        const loginMessage = document.getElementById('loginMessage');
+        const recaptchaContainer = document.getElementById('recaptcha-container');
 
-  useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      if (user && user.phoneNumber === ADMIN_PHONE_NUMBER) {
-        setIsAdmin(true);
-      }
-    });
+        const playerNameInput = document.getElementById('playerNameInput');
+        const addPlayerBtn = document.getElementById('addPlayerBtn');
+        const playerList = document.getElementById('playerList');
+        const playerSelect = document.getElementById('playerSelect');
+        const teamSelect = document.getElementById('teamSelect');
+        const submitPickBtn = document.getElementById('submitPickBtn');
+        const pickMessage = document.getElementById('pickMessage');
+        const resultsTableBody = document.getElementById('resultsTableBody');
+        const updateScoresBtn = document.getElementById('updateScoresBtn');
+        const leaderboardTableBody = document.getElementById('leaderboardTableBody');
+        const chatWindow = document.getElementById('chat-window');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const adminPlayerList = document.getElementById('adminPlayerList');
 
-    const unsubscribePlayers = onSnapshot(playersRef, (snapshot) => {
-      setPlayers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    
-    const unsubscribeScores = onSnapshot(scoresRef, (snapshot) => {
-      const newScores = {};
-      snapshot.docs.forEach(doc => {
-        newScores[doc.id] = doc.data().points;
-      });
-      setScores(newScores);
-    });
+        // --- Utility Functions ---
 
-    const unsubscribeGame = onSnapshot(gameRef, (doc) => {
-      if (doc.exists()) {
-        setIsPickerLocked(doc.data().isLocked);
-      }
-    });
-    
-    return () => {
-      unsubscribePlayers();
-      unsubscribeScores();
-      unsubscribeGame();
-    };
-  }, []);
+        function showPage(pageName) {
+            Object.values(pages).forEach(page => page.classList.add('hidden'));
+            pages[pageName].classList.remove('hidden');
 
-  return (
-    <Router>
-      <div className="container mx-auto p-4 lg:p-10 bg-white rounded-xl shadow-lg my-8">
-        <h1 className="text-4xl font-extrabold text-center text-blue-800 mb-2">Top of the Table 1805</h1>
-        <p className="text-center text-gray-500 mb-8">Your Premier League Pick'em League</p>
+            Object.values(navLinks).forEach(link => link.classList.remove('active'));
+            if (navLinks[pageName]) {
+                navLinks[pageName].classList.add('active');
+            }
+        }
 
-        <nav className="mb-8 flex justify-center gap-4 border-b pb-4">
-          <NavLink to="/">Picks</NavLink>
-          <NavLink to="/leaderboard">Leaderboard</NavLink>
-          <NavLink to="/rules">Rules</NavLink>
-          {isAdmin && <NavLink to="/admin">Admin</NavLink>}
-        </nav>
+        function renderPlayers() {
+            playerList.innerHTML = players.map(p => `
+                <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                    ${p.name}
+                </span>
+            `).join('');
 
-        <Routes>
-          <Route path="/" element={<PicksPage user={user} players={players} isPickerLocked={isPickerLocked} />} />
-          <Route path="/leaderboard" element={<LeaderboardPage players={players} scores={scores} />} />
-          <Route path="/rules" element={<RulesPage />} />
-          {isAdmin && <Route path="/admin" element={<AdminPage players={players} isPickerLocked={isPickerLocked} />} />}
-        </Routes>
-      </div>
-    </Router>
-  );
-}
+            playerSelect.innerHTML = '<option value="" disabled selected>Choose a player</option>';
+            players.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = p.name;
+                playerSelect.appendChild(option);
+            });
+        }
+        
+        function renderAdminPlayerList() {
+            adminPlayerList.innerHTML = players.map(p => `
+                <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm mb-2">
+                    <span class="font-medium">${p.name}</span>
+                    <div class="flex gap-2">
+                        <button class="btn-secondary text-xs" onclick="makeAdmin('${p.id}', ${p.role === 'admin'})">
+                            ${p.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}
+                        </button>
+                        <button class="btn-red text-xs" onclick="removePlayer('${p.id}')">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        window.removePlayer = async function(playerId) {
+            try {
+                await deleteDoc(doc(playersRef, playerId));
+                const playerPicksQuery = query(picksRef, where('playerId', '==', playerId));
+                const playerPicks = await getDocs(playerPicksQuery);
+                playerPicks.forEach(async pickDoc => {
+                    await deleteDoc(pickDoc.ref);
+                });
+                await deleteDoc(doc(scoresRef, playerId));
+                alert('Player removed successfully.');
+            } catch (error) {
+                console.error("Error removing player:", error);
+                alert('Failed to remove player.');
+            }
+        };
 
-// --- Navigation Link Component ---
-function NavLink({ to, children }) {
-  const [isActive, setIsActive] = useState(false);
+        window.makeAdmin = async function(playerId, currentlyAdmin) {
+            try {
+                await setDoc(doc(playersRef, playerId), { role: currentlyAdmin ? 'user' : 'admin' }, { merge: true });
+                alert('Player role updated successfully.');
+            } catch (error) {
+                console.error("Error updating player role:", error);
+                alert('Failed to update player role.');
+            }
+        };
 
-  useEffect(() => {
-    const path = window.location.pathname;
-    setIsActive(path === to);
-  }, [to]);
+        function renderTeams() {
+            teamSelect.innerHTML = '<option value="" disabled selected>Choose a team</option>';
+            TEAMS.forEach(team => {
+                const option = document.createElement('option');
+                option.value = team;
+                option.textContent = team;
+                teamSelect.appendChild(option);
+            });
+        }
 
-  return (
-    <Link
-      to={to}
-      className={`px-4 py-2 rounded-md font-bold transition duration-300 ${isActive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-200'}`}
-    >
-      {children}
-    </Link>
-  );
-}
+        function renderResultsTable() {
+            resultsTableBody.innerHTML = TEAMS.map(team => `
+                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                    <td class="py-3 px-6 text-left whitespace-nowrap font-medium">${team}</td>
+                    <td class="py-3 px-6 text-left">
+                        <select data-team="${team}" class="result-select w-full p-2 rounded-md border border-gray-300">
+                            <option value="pending">Pending</option>
+                            <option value="win">Win</option>
+                            <option value="loss">Loss</option>
+                            <option value="draw">Draw</option>
+                        </select>
+                    </td>
+                </tr>
+            `).join('');
+        }
 
-// --- Picks Page ---
-function PicksPage({ user, players, isPickerLocked }) {
-  const [selectedPlayer, setSelectedPlayer] = useState('');
-  const [selectedTeam, setSelectedTeam] = useState('');
-  const [homeAway, setHomeAway] = useState('');
-  const [message, setMessage] = useState('');
+        function renderLeaderboard() {
+            const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a);
+            if (sortedScores.length === 0) {
+                leaderboardTableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>';
+                return;
+            }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (isPickerLocked) {
-      setMessage('Picks are now locked for this week.');
-      return;
-    }
-    // ... [Logic for pick submission, validation, and Firestore update] ...
-    setMessage('Pick submitted successfully!');
-  };
-
-  if (!user) {
-    return <LoginPage />;
-  }
-
-  return (
-    <div className="space-y-8">
-      <div className="bg-gray-50 p-6 rounded-lg shadow-inner">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Make Your Picks</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <select value={selectedPlayer} onChange={e => setSelectedPlayer(e.target.value)} className="w-full p-3 rounded-md border">
-            <option value="">Select a player</option>
-            {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          <select value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)} className="w-full p-3 rounded-md border">
-            <option value="">Select a team</option>
-            {TEAMS.map(team => <option key={team} value={team}>{team}</option>)}
-          </select>
-          <div className="flex gap-4">
-            <label className="inline-flex items-center">
-              <input type="radio" name="homeAway" value="Home" checked={homeAway === 'Home'} onChange={e => setHomeAway(e.target.value)} className="form-radio text-blue-600" />
-              <span className="ml-2">Home</span>
-            </label>
-            <label className="inline-flex items-center">
-              <input type="radio" name="homeAway" value="Away" checked={homeAway === 'Away'} onChange={e => setHomeAway(e.target.value)} className="form-radio text-blue-600" />
-              <span className="ml-2">Away</span>
-            </label>
-          </div>
-          <button type="submit" disabled={isPickerLocked} className="btn-primary w-full disabled:bg-gray-400">Submit Pick</button>
-        </form>
-        {message && <p className="mt-4 text-center text-red-500">{message}</p>}
-      </div>
-    </div>
-  );
-}
-
-// --- Leaderboard Page ---
-function LeaderboardPage({ players, scores }) {
-  const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a);
-
-  return (
-    <div className="space-y-8">
-      <h2 className="text-3xl font-bold text-blue-800 mb-4">Live Leaderboard</h2>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white rounded-lg shadow">
-          <thead>
-            <tr className="bg-blue-600 text-white uppercase text-sm leading-normal">
-              <th className="py-3 px-6 text-left rounded-tl-lg">Rank</th>
-              <th className="py-3 px-6 text-left">Player</th>
-              <th className="py-3 px-6 text-left rounded-tr-lg">Total Points</th>
-            </tr>
-          </thead>
-          <tbody className="text-gray-600 text-sm font-light">
-            {sortedScores.length === 0 ? (
-              <tr><td colSpan="3" className="text-center py-4">No players yet.</td></tr>
-            ) : (
-              sortedScores.map(([id, score], index) => {
+            leaderboardTableBody.innerHTML = sortedScores.map(([id, score], index) => {
                 const player = players.find(p => p.id === id);
                 const playerName = player ? player.name : 'Unknown Player';
-                return (
-                  <tr key={id} className="border-b border-gray-200 last:border-b-0 hover:bg-gray-100">
-                    <td className="py-3 px-6 text-left font-medium">{index + 1}</td>
-                    <td className="py-3 px-6 text-left">{playerName}</td>
-                    <td className="py-3 px-6 text-left font-bold text-blue-600">{score}</td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+                return `
+                    <tr class="border-b border-gray-200 last:border-b-0 hover:bg-gray-100">
+                        <td class="py-3 px-6 text-left font-medium">${index + 1}</td>
+                        <td class="py-3 px-6 text-left">${playerName}</td>
+                        <td class="py-3 px-6 text-left font-bold text-blue-600">${score}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
 
-// --- Rules Page ---
-function RulesPage() {
-  return (
-    <div className="space-y-8">
-      <h2 className="text-3xl font-bold text-blue-800 mb-4">League Rules</h2>
-      <p className="text-lg text-gray-700">You have 40 possible picks for the 38 match weeks. Every team home and away.</p>
-      <p className="text-lg text-gray-700">3 points for a win, 1 for a draw. If a match is a loss, you get 0 points.</p>
-      <p className="text-lg text-gray-700">The leaderboard is automatically tracked and updated once the weekly results are entered by the commissioner.</p>
-    </div>
-  );
-}
+        function updateSubmitButtonState() {
+            const playerSelected = playerSelect.value !== '';
+            const teamSelected = teamSelect.value !== '';
+            const homeAwaySelected = document.querySelector('input[name="homeAway"]:checked');
 
-// --- Admin Page ---
-function AdminPage({ players, isPickerLocked }) {
-  const handleLockPicks = async () => {
-    await setDoc(doc(db, 'game_state', 'state'), { isLocked: !isPickerLocked }, { merge: true });
-  };
-  
-  return (
-    <div className="space-y-8">
-      <h2 className="text-3xl font-bold text-blue-800 mb-4">Admin Controls</h2>
-      <div className="bg-gray-50 p-6 rounded-lg shadow-inner">
-        <h3 className="text-2xl font-bold mb-4">Pick Management</h3>
-        <p className="mb-4">Current pick status: {isPickerLocked ? 'Locked' : 'Open'}</p>
-        <button onClick={handleLockPicks} className={`btn-primary ${isPickerLocked ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
-          {isPickerLocked ? 'Unlock Picks' : 'Lock Picks'}
-        </button>
-      </div>
-      
-      <div className="bg-gray-50 p-6 rounded-lg shadow-inner">
-        <h3 className="text-2xl font-bold mb-4">Player Management</h3>
-        {players.map(player => (
-          <div key={player.id} className="flex justify-between items-center p-2 border-b">
-            <span>{player.name}</span>
-            <div className="space-x-2">
-              <button className="btn-secondary">Make Admin</button>
-              <button className="btn-red">Remove</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+            submitPickBtn.disabled = !(playerSelected && teamSelected && homeAwaySelected);
+        }
+        
+        function addMessageToChat(author, text, timestamp) {
+            const messageDiv = document.createElement('div');
+            const formattedTime = new Date(timestamp.toDate()).toLocaleTimeString();
+            messageDiv.className = 'mb-2 text-sm';
+            messageDiv.innerHTML = `<span class="font-bold text-blue-600">${author} (${formattedTime}):</span> ${text}`;
+            chatWindow.appendChild(messageDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
 
-// --- Login Page ---
-function LoginPage() {
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [code, setCode] = useState('');
-  const [message, setMessage] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState(null);
+        // --- Firebase Auth and Data Listeners ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                const userPhoneNumber = user.phoneNumber;
+                if (userPhoneNumber === ADMIN_PHONE_NUMBER) {
+                    isAdmin = true;
+                }
 
-  const handleSendCode = async () => {
-    try {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
-      setConfirmationResult(confirmation);
-      setMessage('Code sent! Enter it below.');
-    } catch (error) {
-      setMessage('Failed to send code. Check your phone number.');
-      console.error(error);
-    }
-  };
+                if (isAdmin) {
+                    const adminNavLink = document.createElement('button');
+                    adminNavLink.id = 'nav-admin';
+                    adminNavLink.className = 'page-link';
+                    adminNavLink.textContent = 'Admin';
+                    document.querySelector('nav').appendChild(adminNavLink);
+                    navLinks.admin = adminNavLink;
+                    navLinks.admin.addEventListener('click', () => showPage('admin'));
+                }
 
-  const handleVerifyCode = async () => {
-    try {
-      await confirmationResult.confirm(code);
-    } catch (error) {
-      setMessage('Invalid code. Please try again.');
-      console.error(error);
-    }
-  };
+                showPage(isAdmin ? 'admin' : 'app');
+                
+                onSnapshot(playersRef, (snapshot) => {
+                    players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderPlayers();
+                    if(isAdmin) renderAdminPlayerList();
+                });
 
-  return (
-    <div className="max-w-md mx-auto p-6 space-y-4">
-      <h2 className="text-3xl font-bold text-blue-800 text-center">Login</h2>
-      {!confirmationResult ? (
-        <div className="space-y-4">
-          <input
-            type="tel"
-            value={phoneNumber}
-            onChange={e => setPhoneNumber(e.target.value)}
-            placeholder="E.g., +18139925685"
-            className="w-full p-3 rounded-md border"
-          />
-          <button onClick={handleSendCode} className="btn-primary w-full">Send Code</button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <input
-            type="text"
-            value={code}
-            onChange={e => setCode(e.target.value)}
-            placeholder="Enter verification code"
-            className="w-full p-3 rounded-md border"
-          />
-          <button onClick={handleVerifyCode} className="btn-primary w-full">Verify Code</button>
-        </div>
-      )}
-      {message && <p className="text-center text-red-500 mt-4">{message}</p>}
-      <div id="recaptcha-container"></div>
-    </div>
-  );
-}
+                onSnapshot(scoresRef, (snapshot) => {
+                    scores = {};
+                    snapshot.docs.forEach(doc => {
+                        scores[doc.id] = doc.data().points;
+                    });
+                    renderLeaderboard();
+                });
+                
+                onSnapshot(chatRef, (snapshot) => {
+                    chatWindow.innerHTML = '';
+                    snapshot.docs.forEach(doc => {
+                        const message = doc.data();
+                        addMessageToChat(message.author, message.text, message.timestamp);
+                    });
+                });
+
+                const playerDoc = await getDocs(query(playersRef, where('id', '==', userId)));
+                if (playerDoc.empty) {
+                    await setDoc(doc(playersRef, userId), { 
+                        name: `Player_${userId.substring(0, 5)}`,
+                        role: 'user',
+                        phoneNumber: userPhoneNumber
+                    });
+                } else {
+                    userName = playerDoc.docs[0].data().name;
+                }
+            } else {
+                showPage('login');
+            }
+        });
+
+        // --- Event Listeners ---
+        sendCodeBtn.addEventListener('click', async () => {
+            const phoneNumber = loginPhoneNumberInput.value;
+            if (phoneNumber) {
+                try {
+                    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { 'size': 'invisible' });
+                    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+                    loginMessage.textContent = 'Code sent! Enter it below.';
+                    sendCodeBtn.classList.add('hidden');
+                    loginCodeInput.classList.remove('hidden');
+                    verifyCodeBtn.classList.remove('hidden');
+                } catch (error) {
+                    loginMessage.textContent = 'Failed to send code. Please try again.';
+                    console.error("SMS send error:", error);
+                }
+            }
+        });
+
+        verifyCodeBtn.addEventListener('click', async () => {
+            const code = loginCodeInput.value;
+            if (code) {
+                try {
+                    await confirmationResult.confirm(code);
+                } catch (error) {
+                    loginMessage.textContent = 'Invalid code. Please try again.';
+                    console.error("Code verification error:", error);
+                }
+            }
+        });
+        
+        submitPickBtn.addEventListener('click', async () => {
+            const player = playerSelect.value;
+            const team = teamSelect.value;
+            const homeAway = document.querySelector('input[name="homeAway"]:checked')?.value;
+
+            if (!player || !team || !homeAway) {
+                pickMessage.textContent = 'Please select a player, team, and home/away status.';
+                return;
+            }
+
+            const playerPicksQuery = query(picksRef, where('playerId', '==', player), where('team', '==', team), where('homeAway', '==', homeAway));
+            const existingPicks = await getDocs(playerPicksQuery);
+
+            if (!existingPicks.empty) {
+                pickMessage.textContent = `This player has already picked ${team} for a ${homeAway} game.`;
+                return;
+            }
+
+            const pickData = {
+                playerId: player,
+                week: 1,
+                team: team,
+                homeAway: homeAway,
+                result: 'pending'
+            };
+
+            await addDoc(picksRef, pickData);
+            pickMessage.textContent = 'Pick submitted successfully!';
+            playerSelect.value = '';
+            teamSelect.value = '';
+            document.querySelector('input[name="homeAway"]:checked').checked = false;
+            updateSubmitButtonState();
+        });
+
+        updateScoresBtn.addEventListener('click', async () => {
+            if (!isAdmin) return;
+            const results = {};
+            document.querySelectorAll('.result-select').forEach(select => {
+                results[select.dataset.team] = select.value;
+            });
+            const allPicksSnapshot = await getDocs(picksRef);
+            let updatedScores = {};
+            players.forEach(p => updatedScores[p.id] = 0);
+            allPicksSnapshot.forEach(pickDoc => {
+                const pickData = pickDoc.data();
+                const gameResult = results[pickData.team];
+
+                if (gameResult === 'win') {
+                    updatedScores[pickData.playerId] += 3;
+                } else if (gameResult === 'draw') {
+                    updatedScores[pickData.playerId] += 1;
+                }
+            });
+            for (const playerId in updatedScores) {
+                await setDoc(doc(scoresRef, playerId), { points: updatedScores[playerId] });
+            }
+            alert('Scores have been updated!');
+        });
+
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                sendBtn.click();
+            }
+        });
+
+        sendBtn.addEventListener('click', async () => {
+            const message = chatInput.value.trim();
+            if (message) {
+                await addDoc(chatRef, {
+                    author: userName,
+                    text: message,
+                    timestamp: serverTimestamp()
+                });
+                chatInput.value = '';
+            }
+        });
+
+        document.querySelectorAll('#picks-section select, #picks-section input').forEach(input => {
+            input.addEventListener('change', updateSubmitButtonState);
+        });
+
+        // --- Page Navigation Logic ---
+        Object.keys(navLinks).forEach(pageName => {
+            navLinks[pageName].addEventListener('click', () => {
+                if (isAdmin && pageName !== 'admin' && navLinks.admin) {
+                    navLinks.admin.classList.remove('active');
+                } else {
+                    Object.values(navLinks).forEach(link => link.classList.remove('active'));
+                }
+                navLinks[pageName].classList.add('active');
+                showPage(pageName);
+            });
+        });
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTeams();
+            renderResultsTable();
+            // Initial page is handled by auth state listener
+        });
+    </script>
+</body>
+</html>
