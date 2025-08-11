@@ -25,9 +25,6 @@
         .btn-secondary {
             @apply bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-md hover:bg-gray-500 transition duration-300;
         }
-        .btn-red {
-            @apply bg-red-600 text-white font-bold py-2 px-4 rounded-md shadow-md hover:bg-red-700 transition duration-300;
-        }
         .page-link {
             @apply px-4 py-2 rounded-md font-bold transition duration-300;
         }
@@ -46,410 +43,593 @@
             display: flex;
             flex-direction: column;
         }
-        #recaptcha-container {
-            margin-top: 1rem;
-        }
     </style>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithPhoneNumber, RecaptchaVerifier, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc, serverTimestamp, getDocs, where, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+</head>
+<body class="bg-gray-100 p-4 min-h-screen flex flex-col items-center">
 
-        // --- Firebase Initialization and Globals ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        let userId = null;
-        let userName = 'Anonymous';
-        let isAdmin = false;
-        let confirmationResult;
-        
-        // --- Admin Configuration ---
-        const ADMIN_PHONE_NUMBER = "+18139925685";
-        
-        // --- Firestore Collections ---
-        // Corrected Firestore pathing to fix the "Invalid document reference" error.
-        // The path must be `collection/document/collection/document...`
-        const publicDataCol = collection(db, 'artifacts', appId, 'public_data');
-        const playersRef = collection(publicDataCol, 'players');
-        const picksRef = collection(publicDataCol, 'picks');
-        const scoresRef = collection(publicDataCol, 'scores');
-        const chatRef = collection(publicDataCol, 'chat');
-        const gameRef = doc(publicDataCol, 'game_state');
-        
-        // --- Data Model & Initial State ---
-        const TEAMS = [
-            "AFC Bournemouth", "Arsenal", "Aston Villa", "Brentford", "Brighton & Hove Albion",
-            "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham", "Leeds United",
-            "Liverpool", "Manchester City", "Manchester United", "Newcastle United",
-            "Nottingham Forest", "Sunderland", "Tottenham Hotspur", "West Ham United",
-            "Wolverhampton Wanderers"
-        ].sort();
+<div id="app" class="container bg-white rounded-xl shadow-lg p-6 lg:p-10 my-8">
+    <h1 class="text-4xl font-extrabold text-center text-blue-800 mb-2">Top of the Table 1805</h1>
+    
+    <!-- Navigation Bar -->
+    <nav id="navbar" class="mb-8 flex justify-center gap-4 border-b pb-4 hidden">
+        <button id="nav-app" class="page-link active">Picks</button>
+        <button id="nav-leaderboard" class="page-link">Leaderboard</button>
+        <button id="nav-history" class="page-link">Picks History</button>
+        <button id="nav-rules" class="page-link">Rules</button>
+    </nav>
+    
+    <!-- Pages Container -->
+    <div id="pages-container">
+        <!-- Login Page -->
+        <div id="page-login" class="page">
+            <div class="p-6">
+                <h2 class="text-3xl font-bold text-blue-800 mb-4 text-center">Login</h2>
+                <div class="space-y-4">
+                    <input type="text" id="loginNameInput" placeholder="Enter your player name" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="password" id="loginPinInput" placeholder="Enter your PIN" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="loginBtn" class="btn-primary w-full">Login</button>
+                    <p id="loginMessage" class="text-center text-red-500"></p>
+                </div>
+            </div>
+        </div>
 
-        let players = [];
-        let scores = {};
+        <!-- Main App Page -->
+        <div id="page-app" class="page hidden">
+            <!-- Player Management Section -->
+            <div id="player-manager" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Add Players</h2>
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <input type="text" id="playerNameInput" placeholder="Enter player name" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="password" id="playerPinInput" placeholder="Enter a unique PIN" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="addPlayerBtn" class="btn-primary w-full sm:w-auto">Add Player</button>
+                </div>
+                <div id="playerList" class="flex flex-wrap gap-2">
+                    <!-- Player tags will be injected here by JavaScript -->
+                </div>
+            </div>
 
-        // --- DOM Elements ---
-        const pages = {
-            login: document.getElementById('page-login'),
-            app: document.getElementById('page-app'),
-            leaderboard: document.getElementById('page-leaderboard'),
-            rules: document.getElementById('page-rules'),
-            chat: document.getElementById('page-chat'),
-            players: document.getElementById('page-players'),
-            admin: document.getElementById('page-admin')
-        };
-        const navLinks = {
-            app: document.getElementById('nav-app'),
-            leaderboard: document.getElementById('nav-leaderboard'),
-            rules: document.getElementById('nav-rules'),
-            chat: document.getElementById('nav-chat'),
-            players: document.getElementById('nav-players')
-        };
-
-        const loginPhoneNumberInput = document.getElementById('loginPhoneNumberInput');
-        const sendCodeBtn = document.getElementById('sendCodeBtn');
-        const loginCodeInput = document.getElementById('loginCodeInput');
-        const verifyCodeBtn = document.getElementById('verifyCodeBtn');
-        const loginMessage = document.getElementById('loginMessage');
-        const recaptchaContainer = document.getElementById('recaptcha-container');
-
-        const playerNameInput = document.getElementById('playerNameInput');
-        const addPlayerBtn = document.getElementById('addPlayerBtn');
-        const playerList = document.getElementById('playerList');
-        const playerSelect = document.getElementById('playerSelect');
-        const teamSelect = document.getElementById('teamSelect');
-        const submitPickBtn = document.getElementById('submitPickBtn');
-        const pickMessage = document.getElementById('pickMessage');
-        const resultsTableBody = document.getElementById('resultsTableBody');
-        const updateScoresBtn = document.getElementById('updateScoresBtn');
-        const leaderboardTableBody = document.getElementById('leaderboardTableBody');
-        const chatWindow = document.getElementById('chat-window');
-        const chatInput = document.getElementById('chat-input');
-        const sendBtn = document.getElementById('send-btn');
-        const adminPlayerList = document.getElementById('adminPlayerList');
-
-        // --- Utility Functions ---
-
-        function showPage(pageName) {
-            Object.values(pages).forEach(page => page.classList.add('hidden'));
-            pages[pageName].classList.remove('hidden');
-
-            Object.values(navLinks).forEach(link => link.classList.remove('active'));
-            if (navLinks[pageName]) {
-                navLinks[pageName].classList.add('active');
-            }
-        }
-
-        function renderPlayers() {
-            playerList.innerHTML = players.map(p => `
-                <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                    ${p.name}
-                </span>
-            `).join('');
-
-            playerSelect.innerHTML = '<option value="" disabled selected>Choose a player</option>';
-            players.forEach(p => {
-                const option = document.createElement('option');
-                option.value = p.id;
-                option.textContent = p.name;
-                playerSelect.appendChild(option);
-            });
-        }
-        
-        function renderAdminPlayerList() {
-            adminPlayerList.innerHTML = players.map(p => `
-                <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm mb-2">
-                    <span class="font-medium">${p.name}</span>
-                    <div class="flex gap-2">
-                        <button class="btn-secondary text-xs" onclick="makeAdmin('${p.id}', ${p.role === 'admin'})">
-                            ${p.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}
-                        </button>
-                        <button class="btn-red text-xs" onclick="removePlayer('${p.id}')">Remove</button>
+            <!-- Weekly Picks Section -->
+            <div id="picks-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Make Your Picks</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="playerSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Player</label>
+                        <select id="playerSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="" disabled selected>Choose a player</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="teamSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
+                        <select id="teamSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="" disabled selected>Choose a team</option>
+                        </select>
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Home or Away</label>
+                        <div class="flex gap-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="homeAway" value="Home" class="form-radio text-blue-600">
+                                <span class="ml-2">Home</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="homeAway" value="Away" class="form-radio text-blue-600">
+                                <span class="ml-2">Away</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
-            `).join('');
+                <div class="flex justify-end mt-4">
+                    <button id="submitPickBtn" class="btn-primary" disabled>Submit Pick</button>
+                </div>
+                <div id="pickMessage" class="mt-4 text-center text-red-500"></div>
+            </div>
+        </div>
+
+        <!-- Leaderboard Page -->
+        <div id="page-leaderboard" class="page hidden">
+            <h2 class="text-3xl font-bold text-blue-800 mb-4">Live Leaderboard</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white rounded-lg shadow">
+                    <thead>
+                        <tr class="bg-blue-600 text-white uppercase text-sm leading-normal">
+                            <th class="py-3 px-6 text-left rounded-tl-lg">Rank</th>
+                            <th class="py-3 px-6 text-left">Player</th>
+                            <th class="py-3 px-6 text-left rounded-tr-lg">Total Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardTableBody" class="text-gray-600 text-sm font-light">
+                        <tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Picks History Page -->
+        <div id="page-history" class="page hidden">
+            <h2 class="text-3xl font-bold text-blue-800 mb-4">Picks History</h2>
+            <div id="history-container">
+                <!-- Picks history will be injected here by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Rules Page -->
+        <div id="page-rules" class="page hidden">
+            <h2 class="text-3xl font-bold text-blue-800 mb-4">League Rules</h2>
+            <p class="text-lg text-gray-700 mb-4">You have 40 possible picks for the 38 match weeks. Every team home and away.</p>
+            <p class="text-lg text-gray-700 mb-4">3 points for a win, 1 for a draw. If a match is a loss, you get 0 points.</p>
+            <p class="text-lg text-gray-700">The leaderboard is automatically tracked and updated once the weekly results are entered by the commissioner.</p>
+        </div>
+        
+        <!-- Admin Page (Hidden by default) -->
+        <div id="page-admin" class="page hidden">
+            <h2 class="text-3xl font-bold text-blue-800 mb-4">Admin Controls</h2>
+            <div class="mb-6 flex justify-between items-center">
+                <h3 class="text-xl font-bold">Current Match Week: <span id="current-week-display">1</span></h3>
+                <button id="nextWeekBtn" class="btn-primary">Start Next Week</button>
+            </div>
+            <!-- Game Results Section -->
+            <div id="results-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Enter Weekly Results</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg shadow">
+                        <thead>
+                            <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                                <th class="py-3 px-6 text-left">Team</th>
+                                <th class="py-3 px-6 text-left">Result</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody" class="text-gray-600 text-sm font-light">
+                            <!-- Teams to be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex justify-end mt-4">
+                    <button id="updateScoresBtn" class="btn-primary">Update Scores</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- JavaScript for the Premier League Pick'em App ---
+    
+    // --- Data Model & Initial State ---
+    const TEAMS = [
+        "AFC Bournemouth", "Arsenal", "Aston Villa", "Brentford", "Brighton & Hove Albion",
+        "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham", "Leeds United",
+        "Liverpool", "Manchester City", "Manchester United", "Newcastle United",
+        "Nottingham Forest", "Sunderland", "Tottenham Hotspur", "West Ham United",
+        "Wolverhampton Wanderers"
+    ].sort();
+
+    let players = JSON.parse(localStorage.getItem('players')) || [];
+    let picks = JSON.parse(localStorage.getItem('picks')) || {};
+    let scores = JSON.parse(localStorage.getItem('scores')) || {};
+    let currentWeek = JSON.parse(localStorage.getItem('currentWeek')) || 1;
+    let loggedInPlayer = null;
+    
+    const ADMIN_PIN = "1805"; // You can change this to a secure PIN
+
+    // --- DOM Elements ---
+    const pages = {
+        login: document.getElementById('page-login'),
+        app: document.getElementById('page-app'),
+        leaderboard: document.getElementById('page-leaderboard'),
+        history: document.getElementById('page-history'),
+        rules: document.getElementById('page-rules'),
+        admin: document.getElementById('page-admin')
+    };
+    const navbar = document.getElementById('navbar');
+    const navLinks = {
+        app: document.getElementById('nav-app'),
+        leaderboard: document.getElementById('nav-leaderboard'),
+        history: document.getElementById('nav-history'),
+        rules: document.getElementById('nav-rules')
+    };
+    const loginNameInput = document.getElementById('loginNameInput');
+    const loginPinInput = document.getElementById('loginPinInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginMessage = document.getElementById('loginMessage');
+    const playerNameInput = document.getElementById('playerNameInput');
+    const playerPinInput = document.getElementById('playerPinInput');
+    const addPlayerBtn = document.getElementById('addPlayerBtn');
+    const playerList = document.getElementById('playerList');
+    const playerSelect = document.getElementById('playerSelect');
+    const teamSelect = document.getElementById('teamSelect');
+    const submitPickBtn = document.getElementById('submitPickBtn');
+    const pickMessage = document.getElementById('pickMessage');
+    const resultsTableBody = document.getElementById('resultsTableBody');
+    const updateScoresBtn = document.getElementById('updateScoresBtn');
+    const leaderboardTableBody = document.getElementById('leaderboardTableBody');
+    const historyContainer = document.getElementById('history-container');
+    const currentWeekDisplay = document.getElementById('current-week-display');
+    const nextWeekBtn = document.getElementById('nextWeekBtn');
+
+
+    // --- Utility Functions ---
+
+    /**
+     * Saves all data to local storage.
+     */
+    function saveData() {
+        localStorage.setItem('players', JSON.stringify(players));
+        localStorage.setItem('picks', JSON.stringify(picks));
+        localStorage.setItem('scores', JSON.stringify(scores));
+        localStorage.setItem('currentWeek', JSON.stringify(currentWeek));
+    }
+
+    /**
+     * Renders the list of players.
+     */
+    function renderPlayers() {
+        playerList.innerHTML = players.map(player => `
+            <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                ${player.name}
+            </span>
+        `).join('');
+
+        playerSelect.innerHTML = '<option value="" disabled selected>Choose a player</option>';
+        players.forEach(player => {
+            const option = document.createElement('option');
+            option.value = player.name;
+            option.textContent = player.name;
+            playerSelect.appendChild(option);
+        });
+    }
+
+    /**
+     * Renders the team dropdown for picking.
+     */
+    function renderTeams() {
+        teamSelect.innerHTML = '<option value="" disabled selected>Choose a team</option>';
+        TEAMS.forEach(team => {
+            const option = document.createElement('option');
+            option.value = team;
+            option.textContent = team;
+            teamSelect.appendChild(option);
+        });
+    }
+
+    /**
+     * Renders the table for entering weekly results.
+     */
+    function renderResultsTable() {
+        const resultsTableBodyElement = document.getElementById('resultsTableBody');
+        if (!resultsTableBodyElement) return;
+
+        resultsTableBodyElement.innerHTML = TEAMS.map(team => `
+            <tr class="border-b border-gray-200 hover:bg-gray-100">
+                <td class="py-3 px-6 text-left whitespace-nowrap font-medium">${team}</td>
+                <td class="py-3 px-6 text-left">
+                    <select data-team="${team}" class="result-select w-full p-2 rounded-md border border-gray-300">
+                        <option value="Pending">Pending</option>
+                        <option value="Win">Win</option>
+                        <option value="Loss">Loss</option>
+                        <option value="Draw">Draw</option>
+                    </select>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    /**
+     * Renders the leaderboard based on current scores.
+     */
+    function renderLeaderboard() {
+        const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a);
+
+        if (sortedScores.length === 0) {
+            leaderboardTableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>';
+            return;
         }
-        window.removePlayer = async function(playerId) {
-            try {
-                await deleteDoc(doc(playersRef, playerId));
-                const playerPicksQuery = query(picksRef, where('playerId', '==', playerId));
-                const playerPicks = await getDocs(playerPicksQuery);
-                playerPicks.forEach(async pickDoc => {
-                    await deleteDoc(pickDoc.ref);
-                });
-                await deleteDoc(doc(scoresRef, playerId));
-                alert('Player removed successfully.');
-            } catch (error) {
-                console.error("Error removing player:", error);
-                alert('Failed to remove player.');
+
+        leaderboardTableBody.innerHTML = sortedScores.map(([player, score], index) => `
+            <tr class="border-b border-gray-200 last:border-b-0 hover:bg-gray-100">
+                <td class="py-3 px-6 text-left font-medium">${index + 1}</td>
+                <td class="py-3 px-6 text-left">${player}</td>
+                <td class="py-3 px-6 text-left font-bold text-blue-600">${score}</td>
+            </tr>
+        `).join('');
+    }
+
+    /**
+     * Renders the picks history page.
+     */
+    function renderPicksHistory() {
+        let historyHTML = '';
+        const allWeeks = Object.values(picks).flatMap(playerPicks => playerPicks.map(p => p.week));
+        const uniqueWeeks = [...new Set(allWeeks)].sort((a, b) => a - b);
+        
+        if (uniqueWeeks.length === 0) {
+            historyContainer.innerHTML = '<p class="text-center text-gray-500">No picks have been made yet.</p>';
+            return;
+        }
+
+        uniqueWeeks.forEach(week => {
+            const weekPicks = {};
+            for (const player in picks) {
+                const playerWeekPicks = picks[player].filter(p => p.week === week);
+                if (playerWeekPicks.length > 0) {
+                    weekPicks[player] = playerWeekPicks;
+                }
             }
-        };
 
-        window.makeAdmin = async function(playerId, currentlyAdmin) {
-            try {
-                await setDoc(doc(playersRef, playerId), { role: currentlyAdmin ? 'user' : 'admin' }, { merge: true });
-                alert('Player role updated successfully.');
-            } catch (error) {
-                console.error("Error updating player role:", error);
-                alert('Failed to update player role.');
-            }
-        };
+            historyHTML += `
+                <div class="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
+                    <h3 class="text-xl font-bold mb-4">Match Week ${week}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg shadow">
+                            <thead>
+                                <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                                    <th class="py-3 px-6 text-left">Player</th>
+                                    <th class="py-3 px-6 text-left">Team Picked</th>
+                                    <th class="py-3 px-6 text-left">Result</th>
+                                    <th class="py-3 px-6 text-left">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-600 text-sm font-light">
+                                ${Object.entries(weekPicks).map(([player, playerPicks]) =>
+                                    playerPicks.map(pick => `
+                                        <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                            <td class="py-3 px-6 text-left whitespace-nowrap font-medium">${player}</td>
+                                            <td class="py-3 px-6 text-left">${pick.team} (${pick.homeAway})</td>
+                                            <td class="py-3 px-6 text-left">${pick.result}</td>
+                                            <td class="py-3 px-6 text-left">${pick.points}</td>
+                                        </tr>
+                                    `).join('')
+                                ).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        });
+        historyContainer.innerHTML = historyHTML;
+    }
 
-        function renderTeams() {
-            teamSelect.innerHTML = '<option value="" disabled selected>Choose a team</option>';
-            TEAMS.forEach(team => {
-                const option = document.createElement('option');
-                option.value = team;
-                option.textContent = team;
-                teamSelect.appendChild(option);
-            });
-        }
-
-        function renderResultsTable() {
-            resultsTableBody.innerHTML = TEAMS.map(team => `
-                <tr class="border-b border-gray-200 hover:bg-gray-100">
-                    <td class="py-3 px-6 text-left whitespace-nowrap font-medium">${team}</td>
-                    <td class="py-3 px-6 text-left">
-                        <select data-team="${team}" class="result-select w-full p-2 rounded-md border border-gray-300">
-                            <option value="pending">Pending</option>
-                            <option value="win">Win</option>
-                            <option value="loss">Loss</option>
-                            <option value="draw">Draw</option>
-                        </select>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function renderLeaderboard() {
-            const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a);
-            if (sortedScores.length === 0) {
-                leaderboardTableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>';
-                return;
-            }
-
-            leaderboardTableBody.innerHTML = sortedScores.map(([id, score], index) => {
-                const player = players.find(p => p.id === id);
-                const playerName = player ? player.name : 'Unknown Player';
-                return `
-                    <tr class="border-b border-gray-200 last:border-b-0 hover:bg-gray-100">
-                        <td class="py-3 px-6 text-left font-medium">${index + 1}</td>
-                        <td class="py-3 px-6 text-left">${playerName}</td>
-                        <td class="py-3 px-6 text-left font-bold text-blue-600">${score}</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        function updateSubmitButtonState() {
-            const playerSelected = playerSelect.value !== '';
-            const teamSelected = teamSelect.value !== '';
-            const homeAwaySelected = document.querySelector('input[name="homeAway"]:checked');
-
-            submitPickBtn.disabled = !(playerSelected && teamSelected && homeAwaySelected);
+    /**
+     * Checks if a player has already picked a team Home/Away twice.
+     */
+    function isPickValid(player, team, homeAway) {
+        if (!picks[player]) {
+            return true;
         }
         
-        function addMessageToChat(author, text, timestamp) {
-            const messageDiv = document.createElement('div');
-            const formattedTime = new Date(timestamp.toDate()).toLocaleTimeString();
-            messageDiv.className = 'mb-2 text-sm';
-            messageDiv.innerHTML = `<span class="font-bold text-blue-600">${author} (${formattedTime}):</span> ${text}`;
-            chatWindow.appendChild(messageDiv);
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
+        let homeCount = picks[player].filter(p => p.team === team && p.homeAway === "Home").length;
+        let awayCount = picks[player].filter(p => p.team === team && p.homeAway === "Away").length;
 
-        // --- Firebase Auth and Data Listeners ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                const userPhoneNumber = user.phoneNumber;
-                if (userPhoneNumber === ADMIN_PHONE_NUMBER) {
-                    isAdmin = true;
-                }
+        if (homeAway === "Home" && homeCount >= 1) return false;
+        if (homeAway === "Away" && awayCount >= 1) return false;
 
-                if (isAdmin) {
-                    const adminNavLink = document.createElement('button');
-                    adminNavLink.id = 'nav-admin';
-                    adminNavLink.className = 'page-link';
-                    adminNavLink.textContent = 'Admin';
-                    document.querySelector('nav').appendChild(adminNavLink);
-                    navLinks.admin = adminNavLink;
-                    navLinks.admin.addEventListener('click', () => showPage('admin'));
-                }
-
-                showPage(isAdmin ? 'admin' : 'app');
-                
-                onSnapshot(playersRef, (snapshot) => {
-                    players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    renderPlayers();
-                    if(isAdmin) renderAdminPlayerList();
-                });
-
-                onSnapshot(scoresRef, (snapshot) => {
-                    scores = {};
-                    snapshot.docs.forEach(doc => {
-                        scores[doc.id] = doc.data().points;
+        return true;
+    }
+    
+    /**
+     * Handles login and page views.
+     */
+    function handleLogin() {
+        if (loggedInPlayer) {
+            navbar.classList.remove('hidden');
+            if (loggedInPlayer.name === 'Admin' && loggedInPlayer.pin === ADMIN_PIN) {
+                // Admin view
+                const adminNavLink = document.createElement('button');
+                adminNavLink.id = 'nav-admin';
+                adminNavLink.className = 'page-link';
+                adminNavLink.textContent = 'Admin';
+                if (!document.getElementById('nav-admin')) {
+                    navbar.appendChild(adminNavLink);
+                    adminNavLink.addEventListener('click', () => {
+                         showPage('admin');
+                         renderResultsTable();
+                         updateCurrentWeekDisplay();
                     });
-                    renderLeaderboard();
-                });
-                
-                onSnapshot(chatRef, (snapshot) => {
-                    chatWindow.innerHTML = '';
-                    snapshot.docs.forEach(doc => {
-                        const message = doc.data();
-                        addMessageToChat(message.author, message.text, message.timestamp);
-                    });
-                });
-
-                const playerDoc = await getDocs(query(playersRef, where('id', '==', userId)));
-                if (playerDoc.empty) {
-                    await setDoc(doc(playersRef, userId), { 
-                        name: `Player_${userId.substring(0, 5)}`,
-                        role: 'user',
-                        phoneNumber: userPhoneNumber
-                    });
-                } else {
-                    userName = playerDoc.docs[0].data().name;
                 }
+                showPage('app');
             } else {
-                showPage('login');
+                // Regular player view
+                showPage('app');
             }
-        });
+        } else {
+            // Not logged in
+            showPage('login');
+        }
+    }
 
-        // --- Event Listeners ---
-        sendCodeBtn.addEventListener('click', async () => {
-            const phoneNumber = loginPhoneNumberInput.value;
-            if (phoneNumber) {
-                try {
-                    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { 'size': 'invisible' });
-                    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
-                    loginMessage.textContent = 'Code sent! Enter it below.';
-                    sendCodeBtn.classList.add('hidden');
-                    loginCodeInput.classList.remove('hidden');
-                    verifyCodeBtn.classList.remove('hidden');
-                } catch (error) {
-                    loginMessage.textContent = 'Failed to send code. Please try again.';
-                    console.error("SMS send error:", error);
-                }
-            }
-        });
+    function updateCurrentWeekDisplay() {
+        if (currentWeekDisplay) {
+            currentWeekDisplay.textContent = currentWeek;
+        }
+    }
 
-        verifyCodeBtn.addEventListener('click', async () => {
-            const code = loginCodeInput.value;
-            if (code) {
-                try {
-                    await confirmationResult.confirm(code);
-                } catch (error) {
-                    loginMessage.textContent = 'Invalid code. Please try again.';
-                    console.error("Code verification error:", error);
-                }
-            }
-        });
-        
-        submitPickBtn.addEventListener('click', async () => {
-            const player = playerSelect.value;
-            const team = teamSelect.value;
-            const homeAway = document.querySelector('input[name="homeAway"]:checked')?.value;
 
-            if (!player || !team || !homeAway) {
-                pickMessage.textContent = 'Please select a player, team, and home/away status.';
-                return;
-            }
+    // --- Event Listeners ---
 
-            const playerPicksQuery = query(picksRef, where('playerId', '==', player), where('team', '==', team), where('homeAway', '==', homeAway));
-            const existingPicks = await getDocs(playerPicksQuery);
+    loginBtn.addEventListener('click', () => {
+        const name = loginNameInput.value.trim();
+        const pin = loginPinInput.value.trim();
+        const player = players.find(p => p.name === name);
 
-            if (!existingPicks.empty) {
-                pickMessage.textContent = `This player has already picked ${team} for a ${homeAway} game.`;
-                return;
-            }
+        if (player && player.pin === pin) {
+            loggedInPlayer = player;
+            loginMessage.textContent = '';
+            handleLogin();
+        } else {
+            loginMessage.textContent = 'Invalid name or PIN. Please try again.';
+        }
+    });
 
-            const pickData = {
-                playerId: player,
-                week: 1,
-                team: team,
-                homeAway: homeAway,
-                result: 'pending'
-            };
+    addPlayerBtn.addEventListener('click', () => {
+        const name = playerNameInput.value.trim();
+        const pin = playerPinInput.value.trim();
+        if (name && pin && !players.find(p => p.name === name)) {
+            players.push({ name, pin });
+            scores[name] = 0;
+            picks[name] = [];
+            saveData();
+            renderPlayers();
+            playerNameInput.value = '';
+            playerPinInput.value = '';
+            renderLeaderboard();
+        } else {
+            alert('Player already exists or name/PIN is invalid.');
+        }
+    });
 
-            await addDoc(picksRef, pickData);
+    submitPickBtn.addEventListener('click', () => {
+        const player = playerSelect.value;
+        const team = teamSelect.value;
+        const homeAway = document.querySelector('input[name="homeAway"]:checked')?.value;
+
+        if (!player) {
+            alert('Please select a player to submit a pick.');
+            return;
+        }
+
+        if (isPickValid(player, team, homeAway)) {
+            if (!picks[player]) picks[player] = [];
+            picks[player].push({ week: currentWeek, team: team, homeAway: homeAway, result: 'Pending', points: 0 });
+            saveData();
             pickMessage.textContent = 'Pick submitted successfully!';
+            pickMessage.classList.remove('text-red-500');
+            pickMessage.classList.add('text-green-600');
+            // Clear inputs after submission
             playerSelect.value = '';
             teamSelect.value = '';
-            document.querySelector('input[name="homeAway"]:checked').checked = false;
-            updateSubmitButtonState();
-        });
+            if (document.querySelector('input[name="homeAway"]:checked')) {
+                 document.querySelector('input[name="homeAway"]:checked').checked = false;
+            }
+        } else {
+            pickMessage.textContent = `${player} has already picked ${team} for a ${homeAway} game.`;
+            pickMessage.classList.remove('text-green-600');
+            pickMessage.classList.add('text-red-500');
+        }
+    });
+    
+    // Delegated event listener for Update Scores button
+    document.addEventListener('click', (e) => {
+        if (e.target.id === 'updateScoresBtn') {
+            if (loggedInPlayer.name !== 'Admin' || loggedInPlayer.pin !== ADMIN_PIN) {
+                alert("You do not have permission to update scores.");
+                return;
+            }
 
-        updateScoresBtn.addEventListener('click', async () => {
-            if (!isAdmin) return;
+            // Get results from the table
             const results = {};
             document.querySelectorAll('.result-select').forEach(select => {
-                results[select.dataset.team] = select.value;
+                const team = select.dataset.team;
+                results[team] = select.value;
             });
-            const allPicksSnapshot = await getDocs(picksRef);
-            let updatedScores = {};
-            players.forEach(p => updatedScores[p.id] = 0);
-            allPicksSnapshot.forEach(pickDoc => {
-                const pickData = pickDoc.data();
-                const gameResult = results[pickData.team];
 
-                if (gameResult === 'win') {
-                    updatedScores[pickData.playerId] += 3;
-                } else if (gameResult === 'draw') {
-                    updatedScores[pickData.playerId] += 1;
-                }
-            });
-            for (const playerId in updatedScores) {
-                await setDoc(doc(scoresRef, playerId), { points: updatedScores[playerId] });
-            }
-            alert('Scores have been updated!');
-        });
-
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                sendBtn.click();
-            }
-        });
-
-        sendBtn.addEventListener('click', async () => {
-            const message = chatInput.value.trim();
-            if (message) {
-                await addDoc(chatRef, {
-                    author: userName,
-                    text: message,
-                    timestamp: serverTimestamp()
+            // Update scores for the current week
+            for (const player in picks) {
+                picks[player].forEach(pick => {
+                    if (pick.week === currentWeek) {
+                        const gameResult = results[pick.team];
+                        if (gameResult === 'Win') {
+                            pick.result = 'Win';
+                            pick.points = 3;
+                        } else if (gameResult === 'Draw') {
+                            pick.result = 'Draw';
+                            pick.points = 1;
+                        } else if (gameResult === 'Loss') {
+                            pick.result = 'Loss';
+                            pick.points = 0;
+                        } else {
+                            pick.result = 'Pending';
+                            pick.points = 0;
+                        }
+                    }
                 });
-                chatInput.value = '';
             }
-        });
 
-        document.querySelectorAll('#picks-section select, #picks-section input').forEach(input => {
-            input.addEventListener('change', updateSubmitButtonState);
-        });
-
-        // --- Page Navigation Logic ---
-        Object.keys(navLinks).forEach(pageName => {
-            navLinks[pageName].addEventListener('click', () => {
-                if (isAdmin && pageName !== 'admin' && navLinks.admin) {
-                    navLinks.admin.classList.remove('active');
-                } else {
-                    Object.values(navLinks).forEach(link => link.classList.remove('active'));
+            // Recalculate total scores for all players
+            for (const player in scores) {
+                let totalPoints = 0;
+                if (picks[player]) {
+                    picks[player].forEach(pick => {
+                        totalPoints += pick.points;
+                    });
                 }
-                navLinks[pageName].classList.add('active');
-                showPage(pageName);
-            });
-        });
+                scores[player] = totalPoints;
+            }
+            
+            saveData();
+            renderLeaderboard();
+            renderPicksHistory();
+            alert(`Scores have been updated for Week ${currentWeek}!`);
+        }
+    });
 
-        // --- Initialization ---
-        document.addEventListener('DOMContentLoaded', () => {
-            renderTeams();
-            renderResultsTable();
-            // Initial page is handled by auth state listener
-        });
-    </script>
+    nextWeekBtn.addEventListener('click', () => {
+        if (loggedInPlayer.name !== 'Admin' || loggedInPlayer.pin !== ADMIN_PIN) {
+            alert("You do not have permission to start a new week.");
+            return;
+        }
+        currentWeek++;
+        saveData();
+        updateCurrentWeekDisplay();
+        alert(`Starting Week ${currentWeek}!`);
+    });
+
+
+    // Update submit button state based on form inputs
+    document.querySelectorAll('#picks-section select, #picks-section input').forEach(input => {
+        input.addEventListener('change', updateSubmitButtonState);
+    });
+
+    function updateSubmitButtonState() {
+        const playerSelected = playerSelect.value !== '';
+        const teamSelected = teamSelect.value !== '';
+        const homeAwaySelected = document.querySelector('input[name="homeAway"]:checked');
+
+        submitPickBtn.disabled = !(playerSelected && teamSelected && homeAwaySelected);
+    }
+
+    // --- Page Navigation Logic ---
+    function showPage(pageName) {
+        Object.values(pages).forEach(page => page.classList.add('hidden'));
+        pages[pageName].classList.remove('hidden');
+
+        Object.values(navLinks).forEach(link => link.classList.remove('active'));
+        if (navLinks[pageName]) {
+            navLinks[pageName].classList.add('active');
+        }
+    }
+
+    Object.keys(navLinks).forEach(pageName => {
+        const link = navLinks[pageName];
+        if (link) {
+            link.addEventListener('click', () => {
+                showPage(pageName);
+                if (pageName === 'leaderboard') {
+                    renderLeaderboard();
+                }
+                if (pageName === 'history') {
+                    renderPicksHistory();
+                }
+            });
+        }
+    });
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        renderPlayers();
+        renderTeams();
+        renderResultsTable();
+        renderLeaderboard();
+        updateCurrentWeekDisplay();
+        handleLogin();
+
+        // Admin view is shown if URL has admin=true
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('admin') === 'true') {
+            // This is for local testing. In a real app, this would be a secure login
+            loggedInPlayer = { name: 'Admin', pin: ADMIN_PIN };
+            handleLogin();
+        }
+    });
+</script>
+
 </body>
 </html>
