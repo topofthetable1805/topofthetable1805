@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premier League Pick'em</title>
+    <title>Top of the Table 1805</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -30,102 +30,118 @@
 <body class="bg-gray-100 p-4 min-h-screen flex flex-col items-center">
 
 <div id="app" class="container bg-white rounded-xl shadow-lg p-6 lg:p-10 my-8">
-    <h1 class="text-4xl font-extrabold text-center text-blue-800 mb-2">Premier League Pick'em</h1>
-    <p class="text-center text-gray-500 mb-8">Make your weekly picks and track the leaderboard.</p>
-
-    <!-- Player Management Section -->
-    <div id="player-manager" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Add Players</h2>
-        <div class="flex flex-col sm:flex-row gap-4 mb-4">
-            <input type="text" id="playerNameInput" placeholder="Enter player name" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button id="addPlayerBtn" class="btn-primary w-full sm:w-auto">Add Player</button>
-        </div>
-        <div id="playerList" class="flex flex-wrap gap-2">
-            <!-- Player tags will be injected here by JavaScript -->
-        </div>
+    <div class="flex justify-between items-center mb-4">
+        <h1 class="text-4xl font-extrabold text-blue-800">Top of the Table 1805</h1>
+        <button id="showRulesBtn" class="btn-secondary">View Rules</button>
     </div>
+    
+    <div id="main-content">
+        <p class="text-center text-gray-500 mb-8">Make your weekly picks and track the leaderboard.</p>
 
-    <!-- Weekly Picks Section -->
-    <div id="picks-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Make Your Picks</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label for="playerSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Player</label>
-                <select id="playerSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="" disabled selected>Choose a player</option>
-                </select>
+        <!-- Player Management Section -->
+        <div id="player-manager" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Add Players</h2>
+            <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                <input type="text" id="playerNameInput" placeholder="Enter player name" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button id="addPlayerBtn" class="btn-primary w-full sm:w-auto">Add Player</button>
             </div>
-            <div>
-                <label for="teamSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
-                <select id="teamSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="" disabled selected>Choose a team</option>
-                </select>
+            <div id="playerList" class="flex flex-wrap gap-2">
+                <!-- Player tags will be injected here by JavaScript -->
             </div>
-            <div class="col-span-1 md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Home or Away</label>
-                <div class="flex gap-4">
-                    <label class="inline-flex items-center">
-                        <input type="radio" name="homeAway" value="Home" class="form-radio text-blue-600">
-                        <span class="ml-2">Home</span>
-                    </label>
-                    <label class="inline-flex items-center">
-                        <input type="radio" name="homeAway" value="Away" class="form-radio text-blue-600">
-                        <span class="ml-2">Away</span>
-                    </label>
+        </div>
+
+        <!-- Weekly Picks Section -->
+        <div id="picks-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Make Your Picks</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="playerSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Player</label>
+                    <select id="playerSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="" disabled selected>Choose a player</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="teamSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
+                    <select id="teamSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="" disabled selected>Choose a team</option>
+                    </select>
+                </div>
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Home or Away</label>
+                    <div class="flex gap-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="homeAway" value="Home" class="form-radio text-blue-600">
+                            <span class="ml-2">Home</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="homeAway" value="Away" class="form-radio text-blue-600">
+                            <span class="ml-2">Away</span>
+                        </label>
+                    </div>
                 </div>
             </div>
+            <div class="flex justify-end mt-4">
+                <button id="submitPickBtn" class="btn-primary" disabled>Submit Pick</button>
+            </div>
+            <div id="pickMessage" class="mt-4 text-center text-red-500"></div>
         </div>
-        <div class="flex justify-end mt-4">
-            <button id="submitPickBtn" class="btn-primary" disabled>Submit Pick</button>
-        </div>
-        <div id="pickMessage" class="mt-4 text-center text-red-500"></div>
-    </div>
 
-    <!-- Game Results Section -->
-    <div id="results-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Enter Weekly Results</h2>
-        <div class="overflow-x-auto">
-            <table class="min-w-full bg-white rounded-lg shadow">
-                <thead>
-                    <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
-                        <th class="py-3 px-6 text-left">Team</th>
-                        <th class="py-3 px-6 text-left">Result</th>
-                    </tr>
-                </thead>
-                <tbody id="resultsTableBody" class="text-gray-600 text-sm font-light">
-                    <!-- Teams to be injected here -->
-                </tbody>
-            </table>
+        <!-- Game Results Section -->
+        <div id="results-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Enter Weekly Results</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white rounded-lg shadow">
+                    <thead>
+                        <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                            <th class="py-3 px-6 text-left">Team</th>
+                            <th class="py-3 px-6 text-left">Result</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody" class="text-gray-600 text-sm font-light">
+                        <!-- Teams to be injected here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button id="updateScoresBtn" class="btn-primary">Update Scores</button>
+            </div>
         </div>
-        <div class="flex justify-end mt-4">
-            <button id="updateScoresBtn" class="btn-primary">Update Scores</button>
+
+        <!-- Leaderboard Section -->
+        <div id="leaderboard-section" class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Leaderboard</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white rounded-lg shadow">
+                    <thead>
+                        <tr class="bg-blue-600 text-white uppercase text-sm leading-normal">
+                            <th class="py-3 px-6 text-left rounded-tl-lg">Rank</th>
+                            <th class="py-3 px-6 text-left">Player</th>
+                            <th class="py-3 px-6 text-left rounded-tr-lg">Total Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardTableBody" class="text-gray-600 text-sm font-light">
+                        <!-- Leaderboard will be injected here -->
+                        <tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-
-    <!-- Leaderboard Section -->
-    <div id="leaderboard-section" class="bg-white p-6 rounded-lg shadow-lg">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Leaderboard</h2>
-        <div class="overflow-x-auto">
-            <table class="min-w-full bg-white rounded-lg shadow">
-                <thead>
-                    <tr class="bg-blue-600 text-white uppercase text-sm leading-normal">
-                        <th class="py-3 px-6 text-left rounded-tl-lg">Rank</th>
-                        <th class="py-3 px-6 text-left">Player</th>
-                        <th class="py-3 px-6 text-left rounded-tr-lg">Total Points</th>
-                    </tr>
-                </thead>
-                <tbody id="leaderboardTableBody" class="text-gray-600 text-sm font-light">
-                    <!-- Leaderboard will be injected here -->
-                    <tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>
-                </tbody>
-            </table>
+    
+    <!-- Rules Page -->
+    <div id="rules-page" class="hidden">
+        <h2 class="text-3xl font-bold text-blue-800 mb-4">League Rules</h2>
+        <p class="text-lg text-gray-700 mb-4">You have 40 possible picks for the 38 match weeks. Every team home and away.</p>
+        <p class="text-lg text-gray-700 mb-4">3 points for a win, 1 for a draw. If a match is a loss, you get 0 points.</p>
+        <p class="text-lg text-gray-700">The leaderboard is automatically tracked and updated once the weekly results are entered by the commissioner.</p>
+        <div class="mt-8">
+            <button id="showMainContentBtn" class="btn-primary">Back to App</button>
         </div>
     </div>
-
 </div>
 
 <script>
-    // JavaScript for the Premier League Pick'em App
+    // --- JavaScript for the Premier League Pick'em App ---
     
     // --- Data Model & Initial State ---
     const TEAMS = [
@@ -151,6 +167,21 @@
     const resultsTableBody = document.getElementById('resultsTableBody');
     const updateScoresBtn = document.getElementById('updateScoresBtn');
     const leaderboardTableBody = document.getElementById('leaderboardTableBody');
+    const resultsSection = document.getElementById('results-section');
+    const showRulesBtn = document.getElementById('showRulesBtn');
+    const showMainContentBtn = document.getElementById('showMainContentBtn');
+    const mainContent = document.getElementById('main-content');
+    const rulesPage = document.getElementById('rules-page');
+
+    // --- Admin View Logic ---
+    let isAdmin = false; 
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('admin') === 'true') {
+        isAdmin = true;
+        resultsSection.style.display = 'block';
+    } else {
+        resultsSection.style.display = 'none';
+    }
 
     // --- Utility Functions ---
 
@@ -338,6 +369,19 @@
             submitPickBtn.disabled = true;
         }
     }
+
+    // --- Rules Page Logic ---
+    showRulesBtn.addEventListener('click', () => {
+        mainContent.classList.add('hidden');
+        rulesPage.classList.remove('hidden');
+        showRulesBtn.classList.add('hidden');
+    });
+
+    showMainContentBtn.addEventListener('click', () => {
+        mainContent.classList.remove('hidden');
+        rulesPage.classList.add('hidden');
+        showRulesBtn.classList.remove('hidden');
+    });
 
     // --- Initialization ---
     document.addEventListener('DOMContentLoaded', () => {
