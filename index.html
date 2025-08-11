@@ -52,14 +52,13 @@
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithPhoneNumber, RecaptchaVerifier, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithPhoneNumber, RecaptchaVerifier, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc, serverTimestamp, getDocs, where, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase Initialization and Globals ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
+        
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -72,11 +71,14 @@
         const ADMIN_PHONE_NUMBER = "+18139925685";
         
         // --- Firestore Collections ---
-        const playersRef = collection(db, 'artifacts', appId, 'public', 'data', 'players');
-        const picksRef = collection(db, 'artifacts', appId, 'public', 'data', 'picks');
-        const scoresRef = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
-        const chatRef = collection(db, 'artifacts', appId, 'public', 'data', 'chat');
-        const gameRef = doc(db, 'artifacts', appId, 'public', 'data', 'game_state');
+        // Corrected Firestore pathing to fix the "Invalid document reference" error.
+        // The path must be `collection/document/collection/document...`
+        const publicDataCol = collection(db, 'artifacts', appId, 'public_data');
+        const playersRef = collection(publicDataCol, 'players');
+        const picksRef = collection(publicDataCol, 'picks');
+        const scoresRef = collection(publicDataCol, 'scores');
+        const chatRef = collection(publicDataCol, 'chat');
+        const gameRef = doc(publicDataCol, 'game_state');
         
         // --- Data Model & Initial State ---
         const TEAMS = [
@@ -88,7 +90,6 @@
         ].sort();
 
         let players = [];
-        let picks = [];
         let scores = {};
 
         // --- DOM Elements ---
@@ -116,6 +117,8 @@
         const loginMessage = document.getElementById('loginMessage');
         const recaptchaContainer = document.getElementById('recaptcha-container');
 
+        const playerNameInput = document.getElementById('playerNameInput');
+        const addPlayerBtn = document.getElementById('addPlayerBtn');
         const playerList = document.getElementById('playerList');
         const playerSelect = document.getElementById('playerSelect');
         const teamSelect = document.getElementById('teamSelect');
@@ -304,7 +307,6 @@
 
                 const playerDoc = await getDocs(query(playersRef, where('id', '==', userId)));
                 if (playerDoc.empty) {
-                    // This is where a new user would be created
                     await setDoc(doc(playersRef, userId), { 
                         name: `Player_${userId.substring(0, 5)}`,
                         role: 'user',
@@ -394,6 +396,7 @@
             allPicksSnapshot.forEach(pickDoc => {
                 const pickData = pickDoc.data();
                 const gameResult = results[pickData.team];
+
                 if (gameResult === 'win') {
                     updatedScores[pickData.playerId] += 3;
                 } else if (gameResult === 'draw') {
