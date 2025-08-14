@@ -18,11 +18,7 @@
 <body class="p-6 md:p-10">
 
     <!-- Main Navigation -->
-    <nav class="flex justify-center md:justify-start items-center space-x-4 mb-8">
-        <a href="?" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Leaderboard</a>
-        <a href="?page=history" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Picks History</a>
-        <a href="?page=rules" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Rules</a>
-    </nav>
+    <nav id="main-nav" class="flex justify-center md:justify-start items-center space-x-4 mb-8"></nav>
 
     <!-- Main App Container -->
     <div id="app-container" class="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-gray-200">
@@ -66,14 +62,29 @@
 
         // --- Core Application Logic ---
 
+        // Function to render the navigation links
+        function renderNav(isAdminPage) {
+            const nav = document.getElementById('main-nav');
+            nav.innerHTML = `
+                <a href="?" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Leaderboard</a>
+                <a href="?page=history" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Picks History</a>
+                <a href="?page=rules" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Rules</a>
+                ${isAdminPage ? `<a href="?admin=true" class="text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Admin Portal</a>` : ''}
+            `;
+        }
+
         // Main function to render the correct page based on URL parameters
         function renderApp() {
             const params = new URLSearchParams(window.location.search);
             const appContainer = document.getElementById('app-container');
             const page = params.get('page');
+            const isAdminPage = params.get('admin') === 'true';
+
+            // Render navigation first
+            renderNav(isAdminPage);
 
             // Handle Admin Page
-            if (params.get('admin') === 'true') {
+            if (isAdminPage) {
                 renderAdminPage(appContainer);
                 return;
             }
@@ -134,7 +145,7 @@
 
             container.innerHTML = `
                 <h2 class="text-2xl font-bold mb-4">Admin Portal - Week ${data.currentWeek}</h2>
-                <p class="text-sm text-gray-500 mb-6">Note: This page is only accessible via the URL parameter. The public links have been removed.</p>
+                <p class="text-sm text-gray-500 mb-6">Note: This page is only accessible via the URL parameter.</p>
 
                 <div class="mb-8">
                     <h3 class="text-xl font-semibold mb-2">Add New Player</h3>
