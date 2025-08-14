@@ -66,29 +66,10 @@
 
         <!-- Main App Page -->
         <div id="page-app" class="page hidden">
-            <!-- Player Management Section -->
-            <div id="player-manager" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4">Add Players</h2>
-                <div class="flex flex-col sm:flex-row gap-4 mb-4">
-                    <input type="text" id="playerNameInput" placeholder="Enter player name" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="password" id="playerPinInput" placeholder="Enter a unique PIN" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button id="addPlayerBtn" class="btn-primary w-full sm:w-auto">Add Player</button>
-                </div>
-                <div id="playerList" class="flex flex-wrap gap-2">
-                    <!-- Player tags will be injected here by JavaScript -->
-                </div>
-            </div>
-
-            <!-- Weekly Picks Section -->
             <div id="picks-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Make Your Picks</h2>
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Match Week: <span id="current-week-display-player">1</span></h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="playerSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Player</label>
-                        <select id="playerSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="" disabled selected>Choose a player</option>
-                        </select>
-                    </div>
                     <div>
                         <label for="teamSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
                         <select id="teamSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -155,9 +136,22 @@
         <div id="page-admin" class="page hidden">
             <h2 class="text-3xl font-bold text-blue-800 mb-4">Admin Controls</h2>
             <div class="mb-6 flex justify-between items-center">
-                <h3 class="text-xl font-bold">Current Match Week: <span id="current-week-display">1</span></h3>
+                <h3 class="text-xl font-bold">Current Match Week: <span id="current-week-display-admin">1</span></h3>
                 <button id="nextWeekBtn" class="btn-primary">Start Next Week</button>
             </div>
+            
+            <div class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Manage Players</h2>
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <input type="text" id="playerNameInput" placeholder="Enter player name" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="password" id="playerPinInput" placeholder="Assign unique PIN" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="addPlayerBtn" class="btn-primary w-full sm:w-auto">Add Player</button>
+                </div>
+                <div id="admin-player-list">
+                    <!-- Player list with links will be injected here -->
+                </div>
+            </div>
+
             <!-- Game Results Section -->
             <div id="results-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Enter Weekly Results</h2>
@@ -235,8 +229,10 @@
     const updateScoresBtn = document.getElementById('updateScoresBtn');
     const leaderboardTableBody = document.getElementById('leaderboardTableBody');
     const historyContainer = document.getElementById('history-container');
-    const currentWeekDisplay = document.getElementById('current-week-display');
+    const currentWeekDisplayPlayer = document.getElementById('current-week-display-player');
+    const currentWeekDisplayAdmin = document.getElementById('current-week-display-admin');
     const nextWeekBtn = document.getElementById('nextWeekBtn');
+    const adminPlayerList = document.getElementById('admin-player-list');
 
 
     // --- Utility Functions ---
@@ -255,12 +251,6 @@
      * Renders the list of players.
      */
     function renderPlayers() {
-        playerList.innerHTML = players.map(player => `
-            <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                ${player.name}
-            </span>
-        `).join('');
-
         playerSelect.innerHTML = '<option value="" disabled selected>Choose a player</option>';
         players.forEach(player => {
             const option = document.createElement('option');
@@ -287,10 +277,8 @@
      * Renders the table for entering weekly results.
      */
     function renderResultsTable() {
-        const resultsTableBodyElement = document.getElementById('resultsTableBody');
-        if (!resultsTableBodyElement) return;
-
-        resultsTableBodyElement.innerHTML = TEAMS.map(team => `
+        if (!resultsTableBody) return;
+        resultsTableBody.innerHTML = TEAMS.map(team => `
             <tr class="border-b border-gray-200 hover:bg-gray-100">
                 <td class="py-3 px-6 text-left whitespace-nowrap font-medium">${team}</td>
                 <td class="py-3 px-6 text-left">
@@ -310,7 +298,6 @@
      */
     function renderLeaderboard() {
         const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a);
-
         if (sortedScores.length === 0) {
             leaderboardTableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>';
             return;
@@ -429,9 +416,13 @@
     }
 
     function updateCurrentWeekDisplay() {
-        const displayElement = document.getElementById('current-week-display');
-        if (displayElement) {
-            displayElement.textContent = currentWeek;
+        const displayElementPlayer = document.getElementById('current-week-display-player');
+        if (displayElementPlayer) {
+            displayElementPlayer.textContent = currentWeek;
+        }
+        const displayElementAdmin = document.getElementById('current-week-display-admin');
+        if (displayElementAdmin) {
+            displayElementAdmin.textContent = currentWeek;
         }
     }
 
@@ -562,27 +553,36 @@
             return;
         }
 
-        // Check if all players have made a pick for the current week
-        const allPlayersHavePicked = players.every(p => picks[p.name] && picks[p.name].some(pick => pick.week === currentWeek));
-
-        if (!allPlayersHavePicked) {
-            const confirmed = confirm("Not all players have made their pick. Unsubmitted picks will be given 0 points. Do you want to proceed?");
-            if (!confirmed) {
-                return;
-            }
-            // Automatically assign 0 points for unsubmitted picks if confirmed
-            for (const player of players) {
-                const hasPicked = picks[player.name] && picks[player.name].some(pick => pick.week === currentWeek);
-                if (!hasPicked) {
-                    if (!picks[player.name]) picks[player.name] = [];
-                    picks[player.name].push({ week: currentWeek, team: 'No Pick', homeAway: 'N/A', result: 'Loss', points: 0 });
-                }
-            }
+        const confirmed = confirm("Are you sure you want to start the next match week? This will lock picks for the current week.");
+        if (!confirmed) {
+            return;
         }
         
+        // Find players who haven't picked and assign 0 points.
+        players.forEach(player => {
+            const hasPicked = picks[player.name] && picks[player.name].some(pick => pick.week === currentWeek);
+            if (!hasPicked) {
+                if (!picks[player.name]) picks[player.name] = [];
+                picks[player.name].push({ week: currentWeek, team: 'No Pick', homeAway: 'N/A', result: 'Loss', points: 0 });
+            }
+        });
+
+        // Recalculate total scores for all players after assigning zeros
+        for (const player in scores) {
+            let totalPoints = 0;
+            if (picks[player]) {
+                picks[player].forEach(pick => {
+                    totalPoints += pick.points;
+                });
+            }
+            scores[player] = totalPoints;
+        }
+
         currentWeek++;
         saveData();
         updateCurrentWeekDisplay();
+        renderLeaderboard();
+        renderPicksHistory();
         alert(`Match Week ${currentWeek - 1} is now locked. Starting Match Week ${currentWeek}!`);
     });
 
