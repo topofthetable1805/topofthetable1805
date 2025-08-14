@@ -37,6 +37,9 @@
         .hidden {
             display: none;
         }
+        .copy-link {
+            @apply text-blue-500 hover:underline cursor-pointer;
+        }
     </style>
 </head>
 <body class="bg-gray-100 p-4 min-h-screen flex flex-col items-center">
@@ -45,8 +48,8 @@
     <h1 class="text-4xl font-extrabold text-center text-blue-800 mb-2">Top of the Table 1805</h1>
     
     <!-- Navigation Bar -->
-    <nav id="navbar" class="mb-8 flex justify-center gap-4 border-b pb-4 hidden">
-        <button id="nav-player-portal" class="page-link active">Picks</button>
+    <nav id="navbar" class="mb-8 flex justify-center gap-4 border-b pb-4">
+        <button id="nav-app" class="page-link active">Picks</button>
         <button id="nav-leaderboard" class="page-link">Leaderboard</button>
         <button id="nav-history" class="page-link">Picks History</button>
         <button id="nav-rules" class="page-link">Rules</button>
@@ -54,14 +57,18 @@
     
     <!-- Pages Container -->
     <div id="pages-container">
-        <!-- Player Portal Page -->
-        <div id="page-player-portal" class="page hidden">
-            <h2 class="text-3xl font-bold text-blue-800 mb-4">Welcome, <span id="player-name-display">Player</span>!</h2>
-
+        <!-- Main App Page -->
+        <div id="page-app" class="page">
             <div id="picks-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Make Your Picks</h2>
                 <h3 class="text-lg font-bold text-gray-700 mb-4">Match Week: <span id="current-week-display">1</span></h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="playerSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Player</label>
+                        <select id="playerSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="" disabled selected>Choose a player</option>
+                        </select>
+                    </div>
                     <div>
                         <label for="teamSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
                         <select id="teamSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -136,7 +143,6 @@
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Manage Players</h2>
                 <div class="flex flex-col sm:flex-row gap-4 mb-4">
                     <input type="text" id="playerNameInput" placeholder="Enter player name" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="password" id="playerPinInput" placeholder="Assign unique PIN" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <button id="addPlayerBtn" class="btn-primary w-full sm:w-auto">Add Player</button>
                 </div>
                 <div id="admin-player-list">
@@ -204,7 +210,11 @@
         history: document.getElementById('nav-history'),
         rules: document.getElementById('nav-rules')
     };
-    const playerSelect = document.getElementById('playerSelect');
+
+    const playerNameInput = document.getElementById('playerNameInput');
+    const playerPinInput = document.getElementById('playerPinInput');
+    const addPlayerBtn = document.getElementById('addPlayerBtn');
+    const adminPlayerList = document.getElementById('admin-player-list');
     const teamSelect = document.getElementById('teamSelect');
     const submitPickBtn = document.getElementById('submitPickBtn');
     const pickMessage = document.getElementById('pickMessage');
@@ -214,7 +224,6 @@
     const currentWeekDisplay = document.getElementById('current-week-display');
     const currentWeekDisplayAdmin = document.getElementById('current-week-display-admin');
     const nextWeekBtn = document.getElementById('nextWeekBtn');
-    const adminPlayerList = document.getElementById('admin-player-list');
     
     const urlParams = new URLSearchParams(window.location.search);
     const playerIdFromUrl = urlParams.get('playerid');
@@ -235,7 +244,7 @@
         localStorage.setItem('currentWeek', JSON.stringify(currentWeek));
     }
     
-    function renderPlayers() {
+    function renderAdminPlayers() {
         if(loggedInPlayer && loggedInPlayer.name === 'Admin') {
             adminPlayerList.innerHTML = players.map(player => `
                 <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm mb-2">
@@ -258,7 +267,7 @@
         delete picks[playerName];
         delete scores[playerName];
         saveData();
-        renderPlayers();
+        renderAdminPlayers();
         renderLeaderboard();
         renderPicksHistory();
         alert('Player removed successfully.');
@@ -272,6 +281,7 @@
             player.pin = ADMIN_PIN;
             alert(`${playerName} is now an admin. Their PIN is the admin PIN.`);
             saveData();
+            renderAdminPlayers();
         }
     };
     
@@ -322,7 +332,7 @@
     function renderPicksHistory() {
         if (!historyContainer) return;
         let historyHTML = '';
-        const allWeeks = Object.values(picks).flatMap(playerPicks => playerPicks.map(p => p.week));
+        const allWeeks = Object.values(picks).flatMap(playerPicks => Object.values(playerPicks).map(p => p.week));
         const uniqueWeeks = [...new Set(allWeeks)].sort((a, b) => a - b);
         
         if (uniqueWeeks.length === 0) {
@@ -333,9 +343,9 @@
         uniqueWeeks.forEach(week => {
             const weekPicks = {};
             for (const player in picks) {
-                const playerWeekPicks = picks[player].filter(p => p.week === week);
-                if (playerWeekPicks.length > 0) {
-                    weekPicks[player] = playerWeekPicks;
+                const playerPick = picks[player][week];
+                if (playerPick) {
+                    weekPicks[player] = [playerPick];
                 }
             }
             
@@ -375,8 +385,15 @@
     function isPickValid(player, team, homeAway) {
         if (!picks[player]) return true;
         
-        let homeCount = picks[player].filter(p => p.team === team && p.homeAway === "Home").length;
-        let awayCount = picks[player].filter(p => p.team === team && p.homeAway === "Away").length;
+        let homeCount = 0;
+        let awayCount = 0;
+
+        if (picks[player]) {
+            Object.values(picks[player]).forEach(pick => {
+                if (pick.team === team && pick.homeAway === "Home") homeCount++;
+                if (pick.team === team && pick.homeAway === "Away") awayCount++;
+            });
+        }
         
         if (homeAway === "Home" && homeCount >= 1) return false;
         if (homeAway === "Away" && awayCount >= 1) return false;
@@ -403,7 +420,7 @@
                 if (name && pin && !players.find(p => p.name === name)) {
                     players.push({ name, pin });
                     scores[name] = 0;
-                    picks[name] = {}; // Initialize picks for the new player as an object
+                    picks[name] = {};
                     saveData();
                     renderPlayers();
                     playerNameInput.value = '';
@@ -434,7 +451,7 @@
 
                 if (isPickValid(player, team, homeAway)) {
                     if (!picks[player]) picks[player] = {};
-                    picks[player][currentWeek] = { team: team, homeAway: homeAway, result: 'Pending', points: 0 };
+                    picks[player][currentWeek] = { week: currentWeek, team: team, homeAway: homeAway, result: 'Pending', points: 0 };
                     saveData();
                     pickMessage.textContent = 'Pick submitted successfully!';
                     pickMessage.classList.remove('text-red-500');
@@ -482,7 +499,7 @@
                             playerPick.points = 0;
                         }
                     }
-                }
+                });
     
                 for (const player in scores) {
                     let totalPoints = 0;
@@ -546,7 +563,7 @@
         };
 
         function showPage(pageName) {
-            const allPages = ['playerPortal', 'leaderboard', 'history', 'rules', 'admin', 'login'];
+            const allPages = ['playerPortal', 'leaderboard', 'history', 'rules', 'admin'];
             allPages.forEach(p => {
                 const pageElement = document.getElementById(`page-${p}`);
                 if (pageElement) pageElement.classList.add('hidden');
@@ -611,38 +628,50 @@
                 updateCurrentWeekDisplay();
             } else {
                 alert('Invalid player link.');
-                if(navbar) navbar.classList.remove('hidden');
-                showPage('app');
-                renderTeams();
             }
         } else {
-            const loginBtn = document.getElementById('loginBtn');
-            const loginNameInput = document.getElementById('loginNameInput');
-            const loginPinInput = document.getElementById('loginPinInput');
-            const loginMessage = document.getElementById('loginMessage');
-            if(loginBtn) {
-                loginBtn.addEventListener('click', () => {
-                    const name = loginNameInput.value.trim();
-                    const pin = loginPinInput.value.trim();
-                    const player = players.find(p => p.name === name);
-
-                    if (player && player.pin === pin) {
-                        loggedInPlayer = player;
-                        loginMessage.textContent = '';
-                        navbar.classList.remove('hidden');
-                        document.getElementById('player-name-display').textContent = loggedInPlayer.name;
-                        showPage('playerPortal');
-                        renderTeams();
-                        updateCurrentWeekDisplay();
-                    } else {
-                        loginMessage.textContent = 'Invalid name or PIN. Please try again.';
-                    }
-                });
-            }
-            if(navbar) navbar.classList.remove('hidden');
-            showPage('login');
+            // Default view for a non-admin, non-player link
+            showPage('app');
+            renderTeams();
         }
         
+        const submitPickBtnPlayer = document.getElementById('submitPickBtn');
+        if (submitPickBtnPlayer) {
+            submitPickBtnPlayer.addEventListener('click', () => {
+                const team = teamSelect.value;
+                const homeAway = document.querySelector('input[name="homeAway"]:checked')?.value;
+                if (!loggedInPlayer) {
+                    alert('Please use your unique player link to submit a pick.');
+                    return;
+                }
+                const player = loggedInPlayer.name;
+                const hasPickedThisWeek = picks[player] && picks[player][currentWeek];
+
+                if (hasPickedThisWeek) {
+                    pickMessage.textContent = `You have already made your pick for Match Week ${currentWeek}.`;
+                    pickMessage.classList.remove('text-green-600');
+                    pickMessage.classList.add('text-red-500');
+                    return;
+                }
+
+                if (isPickValid(player, team, homeAway)) {
+                    if (!picks[player]) picks[player] = {};
+                    picks[player][currentWeek] = { week: currentWeek, team: team, homeAway: homeAway, result: 'Pending', points: 0 };
+                    saveData();
+                    pickMessage.textContent = 'Pick submitted successfully!';
+                    pickMessage.classList.remove('text-red-500');
+                    pickMessage.classList.add('text-green-600');
+                    teamSelect.value = '';
+                    if (document.querySelector('input[name="homeAway"]:checked')) {
+                         document.querySelector('input[name="homeAway"]:checked').checked = false;
+                    }
+                } else {
+                    pickMessage.textContent = `${player} has already picked ${team} for a ${homeAway} game.`;
+                    pickMessage.classList.remove('text-green-600');
+                    pickMessage.classList.add('text-red-500');
+                }
+            });
+        }
     });
 </script>
 
