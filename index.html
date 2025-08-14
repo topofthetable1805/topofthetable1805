@@ -51,7 +51,7 @@
                 // Initialize with default values if no data exists
                 data = {
                     players: [],
-                    picks: {}, // picks[week][playerPin] = { home: team, away: team }
+                    picks: {}, // picks[week][playerPin] = { team: 'Team Name', status: 'home' | 'away' }
                     weeklyResults: {}, // weeklyResults[week][team] = 'W' | 'D' | 'L'
                     currentWeek: 1
                 };
@@ -190,35 +190,39 @@
                 contentHtml = `
                     <p class="text-green-600 text-lg font-semibold">Your pick for Week ${currentWeek} has been saved!</p>
                     <div class="mt-4 p-4 border rounded-lg bg-green-50">
-                        <p class="font-medium">Home Team: <span class="text-gray-800">${playerPicks.home}</span></p>
-                        <p class="font-medium">Away Team: <span class="text-gray-800">${playerPicks.away}</span></p>
+                        <p class="font-medium">Team Picked: <span class="text-gray-800">${playerPicks.team}</span></p>
+                        <p class="font-medium">Pick Status: <span class="text-gray-800">${playerPicks.status}</span></p>
                     </div>
                     <p class="mt-4 text-gray-600">The commissioner will enter results soon. You can view the leaderboard or picks history from the main page.</p>
                 `;
             } else {
                 // Generate team options, excluding teams already picked by the player
-                const usedTeams = getUsedTeamsForPlayer(player.pin, data);
-                const homeTeamsOptions = TEAMS.filter(t => !usedTeams.home.includes(t))
-                                                .map(t => `<option value="${t}">${t}</option>`).join('');
-                const awayTeamsOptions = TEAMS.filter(t => !usedTeams.away.includes(t))
+                const usedTeams = [...player.homePicksUsed, ...player.awayPicksUsed];
+                const teamsOptions = TEAMS.filter(t => !usedTeams.includes(t))
                                                 .map(t => `<option value="${t}">${t}</option>`).join('');
                 
                 contentHtml = `
                     <h3 class="text-xl font-semibold mb-4">Make Your Pick for Week ${currentWeek}</h3>
                     <form id="make-pick-form" class="space-y-4">
                         <div>
-                            <label for="home-team" class="block font-medium mb-1">Home Pick</label>
-                            <select id="home-team" class="w-full p-2 border rounded-md shadow-sm" required>
-                                <option value="">-- Select Home Team --</option>
-                                ${homeTeamsOptions}
+                            <label for="team-pick" class="block font-medium mb-1">Select a Team</label>
+                            <select id="team-pick" class="w-full p-2 border rounded-md shadow-sm" required>
+                                <option value="">-- Select Team --</option>
+                                ${teamsOptions}
                             </select>
                         </div>
                         <div>
-                            <label for="away-team" class="block font-medium mb-1">Away Pick</label>
-                            <select id="away-team" class="w-full p-2 border rounded-md shadow-sm" required>
-                                <option value="">-- Select Away Team --</option>
-                                ${awayTeamsOptions}
-                            </select>
+                            <label class="block font-medium mb-1">Pick Status</label>
+                            <div class="flex items-center space-x-4">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="pick-status" value="home" class="form-radio" required>
+                                    <span class="ml-2">Home</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="pick-status" value="away" class="form-radio" required>
+                                    <span class="ml-2">Away</span>
+                                </label>
+                            </div>
                         </div>
                         <button type="submit" class="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors">Submit Pick</button>
                     </form>
@@ -235,13 +239,10 @@
             if (pickForm) {
                 pickForm.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    const homeTeam = document.getElementById('home-team').value;
-                    const awayTeam = document.getElementById('away-team').value;
-                    if (homeTeam === awayTeam) {
-                        alert("You cannot pick the same team for both home and away picks.");
-                        return;
-                    }
-                    savePlayerPick(player.pin, homeTeam, awayTeam);
+                    const teamPick = document.getElementById('team-pick').value;
+                    const pickStatus = document.querySelector('input[name="pick-status"]:checked').value;
+                    
+                    savePlayerPick(player.pin, teamPick, pickStatus);
                 });
             }
         }
@@ -304,29 +305,23 @@
                     let hasPicksForWeek = false;
 
                     players.forEach(player => {
-                        const playerPicks = data.picks[week] ? data.picks[week][player.pin] : null;
-                        if (playerPicks) {
+                        const playerPick = data.picks[week] ? data.picks[week][player.pin] : null;
+                        if (playerPick) {
                             hasPicksForWeek = true;
-                            const homeResult = data.weeklyResults[week] ? data.weeklyResults[week][playerPicks.home] : null;
-                            const awayResult = data.weeklyResults[week] ? data.weeklyResults[week][playerPicks.away] : null;
-                            const homePoints = homeResult === 'W' ? 3 : homeResult === 'D' ? 1 : 0;
-                            const awayPoints = awayResult === 'W' ? 3 : awayResult === 'D' ? 1 : 0;
-                            const totalPickPoints = homePoints + awayPoints;
+                            const pickResult = data.weeklyResults[week] ? data.weeklyResults[week][playerPick.team] : null;
+                            const pickPoints = pickResult === 'W' ? 3 : pickResult === 'D' ? 1 : 0;
 
                             picksHtml.push(`
                                 <div class="bg-gray-50 p-3 rounded-md">
-                                    <p class="font-bold">${player.name}'s Picks:</p>
+                                    <p class="font-bold">${player.name}'s Pick:</p>
                                     <p class="ml-4">
-                                        Home Pick: ${playerPicks.home} 
-                                        <span class="font-medium text-${homeResult === 'W' ? 'green' : homeResult === 'D' ? 'yellow' : 'red'}-600">(${homeResult || 'Pending'})</span> -
-                                        Points: ${homeResult ? homePoints : '0'}
+                                        Team: ${playerPick.team} 
+                                        <span class="font-medium">(${playerPick.status})</span>
                                     </p>
                                     <p class="ml-4">
-                                        Away Pick: ${playerPicks.away}
-                                        <span class="font-medium text-${awayResult === 'W' ? 'green' : awayResult === 'D' ? 'yellow' : 'red'}-600">(${awayResult || 'Pending'})</span> -
-                                        Points: ${awayResult ? awayPoints : '0'}
+                                        Result: <span class="font-medium text-${pickResult === 'W' ? 'green' : pickResult === 'D' ? 'yellow' : 'red'}-600">(${pickResult || 'Pending'})</span> -
+                                        Points: ${pickResult ? pickPoints : '0'}
                                     </p>
-                                    <p class="font-bold mt-2">Total Points for Week: ${totalPickPoints}</p>
                                 </div>
                             `);
                         }
@@ -353,7 +348,8 @@
             container.innerHTML = `
                 <h2 class="text-2xl font-bold mb-4">Official Rules</h2>
                 <div class="prose max-w-none text-gray-700">
-                    <p>You have 40 possible picks for the 38 match weeks. Every team, home and away.</p>
+                    <p>Each week, you will make a single pick from any team you have not yet used. The pick can be designated as either a **home** pick or an **away** pick.</p>
+                    <p>Over the course of the 38 match weeks, your goal is to have picked each of the 20 Premier League teams once as a home pick and once as an away pick. You have 40 possible picks available.</p>
                     <ul class="list-disc list-inside">
                         <li><strong>3 points</strong> for a Win.</li>
                         <li><strong>1 point</strong> for a Draw.</li>
@@ -397,7 +393,7 @@
         }
 
         // Saves a player's pick for the current week
-        function savePlayerPick(playerPin, homeTeam, awayTeam) {
+        function savePlayerPick(playerPin, teamPick, pickStatus) {
             const data = getAppData();
             const currentWeek = data.currentWeek;
             
@@ -406,23 +402,30 @@
                 data.picks[currentWeek] = {};
             }
 
-            // Check if player has already used this team for this type of pick
+            // Check if player has already used this team
             const player = data.players.find(p => p.pin === playerPin);
-            if (player.homePicksUsed.includes(homeTeam)) {
-                alert(`You have already used ${homeTeam} as a home pick.`);
+            if (player.homePicksUsed.includes(teamPick) && player.awayPicksUsed.includes(teamPick)) {
+                alert(`You have already used ${teamPick} as both a home and away pick.`);
                 return;
             }
-            if (player.awayPicksUsed.includes(awayTeam)) {
-                alert(`You have already used ${awayTeam} as an away pick.`);
+            if (pickStatus === 'home' && player.homePicksUsed.includes(teamPick)) {
+                 alert(`You have already used ${teamPick} as a home pick.`);
+                return;
+            }
+            if (pickStatus === 'away' && player.awayPicksUsed.includes(teamPick)) {
+                 alert(`You have already used ${teamPick} as an away pick.`);
                 return;
             }
             
             // Save the pick
-            data.picks[currentWeek][playerPin] = { home: homeTeam, away: awayTeam };
+            data.picks[currentWeek][playerPin] = { team: teamPick, status: pickStatus };
 
             // Update the player's list of used teams
-            player.homePicksUsed.push(homeTeam);
-            player.awayPicksUsed.push(awayTeam);
+            if (pickStatus === 'home') {
+                player.homePicksUsed.push(teamPick);
+            } else {
+                player.awayPicksUsed.push(teamPick);
+            }
             
             saveAppData(data);
             renderApp(); // Re-render to show success message
@@ -457,18 +460,12 @@
             // Calculate points for all players
             data.players.forEach(player => {
                 let weekPoints = 0;
-                const playerPicks = data.picks[currentWeek] ? data.picks[currentWeek][player.pin] : null;
+                const playerPick = data.picks[currentWeek] ? data.picks[currentWeek][player.pin] : null;
 
-                if (playerPicks) {
-                    // Check home pick
-                    const homeResult = weeklyResults[playerPicks.home];
-                    if (homeResult === 'W') weekPoints += 3;
-                    else if (homeResult === 'D') weekPoints += 1;
-
-                    // Check away pick
-                    const awayResult = weeklyResults[playerPicks.away];
-                    if (awayResult === 'W') weekPoints += 3;
-                    else if (awayResult === 'D') weekPoints += 1;
+                if (playerPick) {
+                    const pickResult = weeklyResults[playerPick.team];
+                    if (pickResult === 'W') weekPoints += 3;
+                    else if (pickResult === 'D') weekPoints += 1;
                 }
                 
                 // Add to total points
