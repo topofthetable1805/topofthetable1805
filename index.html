@@ -51,24 +51,13 @@
     
     <!-- Pages Container -->
     <div id="pages-container">
-        <!-- Login Page -->
-        <div id="page-login" class="page">
-            <div class="p-6">
-                <h2 class="text-3xl font-bold text-blue-800 mb-4 text-center">Login</h2>
-                <div class="space-y-4">
-                    <input type="text" id="loginNameInput" placeholder="Enter your player name" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="password" id="loginPinInput" placeholder="Enter your PIN" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button id="loginBtn" class="btn-primary w-full">Login</button>
-                    <p id="loginMessage" class="text-center text-red-500"></p>
-                </div>
-            </div>
-        </div>
+        <!-- Player Portal Page -->
+        <div id="page-player-portal" class="page">
+            <h2 class="text-3xl font-bold text-blue-800 mb-4">Welcome, <span id="player-name-display">Player</span>!</h2>
 
-        <!-- Main App Page -->
-        <div id="page-app" class="page hidden">
             <div id="picks-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Make Your Picks</h2>
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Match Week: <span id="current-week-display-player">1</span></h3>
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Match Week: <span id="current-week-display">1</span></h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="teamSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
@@ -198,12 +187,12 @@
 
     // --- DOM Elements ---
     const pages = {
-        login: document.getElementById('page-login'),
         app: document.getElementById('page-app'),
         leaderboard: document.getElementById('page-leaderboard'),
         history: document.getElementById('page-history'),
         rules: document.getElementById('page-rules'),
-        admin: document.getElementById('page-admin')
+        admin: document.getElementById('page-admin'),
+        playerPortal: document.getElementById('page-player-portal')
     };
     const navbar = document.getElementById('navbar');
     const navLinks = {
@@ -212,28 +201,21 @@
         history: document.getElementById('nav-history'),
         rules: document.getElementById('nav-rules')
     };
-
-    const loginNameInput = document.getElementById('loginNameInput');
-    const loginPinInput = document.getElementById('loginPinInput');
-    const loginBtn = document.getElementById('loginBtn');
-    const loginMessage = document.getElementById('loginMessage');
-    const playerNameInput = document.getElementById('playerNameInput');
-    const playerPinInput = document.getElementById('playerPinInput');
-    const addPlayerBtn = document.getElementById('addPlayerBtn');
-    const playerList = document.getElementById('playerList');
     const playerSelect = document.getElementById('playerSelect');
     const teamSelect = document.getElementById('teamSelect');
     const submitPickBtn = document.getElementById('submitPickBtn');
     const pickMessage = document.getElementById('pickMessage');
     const resultsTableBody = document.getElementById('resultsTableBody');
-    const updateScoresBtn = document.getElementById('updateScoresBtn');
     const leaderboardTableBody = document.getElementById('leaderboardTableBody');
     const historyContainer = document.getElementById('history-container');
     const currentWeekDisplayPlayer = document.getElementById('current-week-display-player');
     const currentWeekDisplayAdmin = document.getElementById('current-week-display-admin');
     const nextWeekBtn = document.getElementById('nextWeekBtn');
     const adminPlayerList = document.getElementById('admin-player-list');
-
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const playerIdFromUrl = urlParams.get('playerid');
+    const isAdminView = urlParams.get('admin') === 'true';
 
     // --- Utility Functions ---
 
@@ -251,14 +233,33 @@
      * Renders the list of players.
      */
     function renderPlayers() {
-        playerSelect.innerHTML = '<option value="" disabled selected>Choose a player</option>';
-        players.forEach(player => {
-            const option = document.createElement('option');
-            option.value = player.name;
-            option.textContent = player.name;
-            playerSelect.appendChild(option);
-        });
+        // Player list is only on the admin page
     }
+    
+    window.removePlayer = function(playerName) {
+        if (!confirm(`Are you sure you want to remove ${playerName}?`)) return;
+        
+        players = players.filter(p => p.name !== playerName);
+        delete picks[playerName];
+        delete scores[playerName];
+        saveData();
+        renderPlayers();
+        renderLeaderboard();
+        renderPicksHistory();
+        alert('Player removed successfully.');
+    };
+    
+    window.makeAdmin = function(playerName) {
+        if (!confirm(`Are you sure you want to make ${playerName} an admin?`)) return;
+        
+        const player = players.find(p => p.name === playerName);
+        if (player) {
+            player.pin = ADMIN_PIN; // Set their PIN to the admin PIN
+            alert(`${playerName} is now an admin. Their PIN is the admin PIN.`);
+            saveData();
+        }
+    };
+
 
     /**
      * Renders the team dropdown for picking.
@@ -484,7 +485,7 @@
             playerSelect.value = '';
             teamSelect.value = '';
             if (document.querySelector('input[name="homeAway"]:checked')) {
-                 document.querySelector('input[name="homeAway"]:checked').checked = false;
+                 document.querySelector('input[name="homeAway']:checked').checked = false;
             }
         } else {
             pickMessage.textContent = `${player} has already picked ${team} for a ${homeAway} game.`;
@@ -592,7 +593,9 @@
     });
 
     function updateSubmitButtonState() {
-        const playerSelected = playerSelect.value !== '';
+        if (!loggedInPlayer) return;
+
+        const playerSelected = loggedInPlayer.name !== '';
         const teamSelected = teamSelect.value !== '';
         const homeAwaySelected = document.querySelector('input[name="homeAway"]:checked');
         const hasPickedThisWeek = loggedInPlayer && picks[loggedInPlayer.name] && picks[loggedInPlayer.name].some(pick => pick.week === currentWeek);
@@ -640,20 +643,51 @@
 
     // --- Initialization ---
     document.addEventListener('DOMContentLoaded', () => {
+        // Player portal page is shown if a player ID is in the URL
+        const playerIdFromUrl = new URLSearchParams(window.location.search).get('playerid');
+        const isAdminView = new URLSearchParams(window.location.search).get('admin') === 'true';
+
+        if(isAdminView) {
+             // If admin, check for admin PIN
+            loggedInPlayer = { name: 'Admin', pin: ADMIN_PIN };
+            // Add Admin button dynamically
+            const adminNavLink = document.createElement('button');
+            adminNavLink.id = 'nav-admin';
+            adminNavLink.className = 'page-link';
+            adminNavLink.textContent = 'Admin';
+            if (!document.getElementById('nav-admin')) {
+                navbar.appendChild(adminNavLink);
+                adminNavLink.addEventListener('click', () => {
+                     showPage('admin');
+                     renderResultsTable();
+                     updateCurrentWeekDisplay();
+                });
+            }
+             navbar.classList.remove('hidden');
+             showPage('admin');
+        } else if (playerIdFromUrl) {
+            // If player link, find the player and log them in
+            const player = players.find(p => p.pin === playerIdFromUrl);
+            if (player) {
+                loggedInPlayer = player;
+                document.getElementById('player-name-display').textContent = loggedInPlayer.name;
+                navbar.classList.remove('hidden');
+                showPage('playerPortal');
+            } else {
+                alert('Invalid player link.');
+                showPage('app'); // Fallback to a generic player view if the link is bad
+            }
+        } else {
+             // Default view, show the picks page
+            navbar.classList.remove('hidden');
+            showPage('app');
+        }
+
         renderPlayers();
         renderTeams();
         renderResultsTable();
         renderLeaderboard();
         updateCurrentWeekDisplay();
-        handleLogin();
-
-        // Admin view is shown if URL has admin=true
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('admin') === 'true') {
-            // This is for local testing. In a real app, this would be a secure login
-            loggedInPlayer = { name: 'Admin', pin: ADMIN_PIN };
-            handleLogin();
-        }
     });
 </script>
 
