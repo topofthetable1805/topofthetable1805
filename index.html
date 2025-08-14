@@ -22,7 +22,6 @@
         <a href="?" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Leaderboard</a>
         <a href="?page=history" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Picks History</a>
         <a href="?page=rules" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Rules</a>
-        <a href="?admin=true" class="text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Admin Portal</a>
     </nav>
 
     <!-- Main App Container -->
@@ -135,6 +134,7 @@
 
             container.innerHTML = `
                 <h2 class="text-2xl font-bold mb-4">Admin Portal - Week ${data.currentWeek}</h2>
+                <p class="text-sm text-gray-500 mb-6">Note: This page is only accessible via the URL parameter. The public links have been removed.</p>
 
                 <div class="mb-8">
                     <h3 class="text-xl font-semibold mb-2">Add New Player</h3>
@@ -259,12 +259,9 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${index + 1}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${player.name}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${player.totalPoints}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <a href="?playerid=${player.pin}" class="text-blue-600 hover:text-blue-900">Link</a>
-                        </td>
                     </tr>
                 `).join('') :
-                `<tr><td colspan="4" class="text-center py-4 text-gray-500">No players on the leaderboard yet.</td></tr>`;
+                `<tr><td colspan="3" class="text-center py-4 text-gray-500">No players on the leaderboard yet.</td></tr>`;
 
             container.innerHTML = `
                 <h2 class="text-2xl font-bold mb-4">Leaderboard</h2>
@@ -275,7 +272,6 @@
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Points</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player Link</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
