@@ -46,7 +46,7 @@
     
     <!-- Navigation Bar -->
     <nav id="navbar" class="mb-8 flex justify-center gap-4 border-b pb-4 hidden">
-        <button id="nav-app" class="page-link active">Picks</button>
+        <button id="nav-player-portal" class="page-link active">Picks</button>
         <button id="nav-leaderboard" class="page-link">Leaderboard</button>
         <button id="nav-history" class="page-link">Picks History</button>
         <button id="nav-rules" class="page-link">Rules</button>
@@ -403,7 +403,7 @@
                 if (name && pin && !players.find(p => p.name === name)) {
                     players.push({ name, pin });
                     scores[name] = 0;
-                    picks[name] = [];
+                    picks[name] = {}; // Initialize picks for the new player as an object
                     saveData();
                     renderPlayers();
                     playerNameInput.value = '';
@@ -423,7 +423,7 @@
                 const team = teamSelect.value;
                 const homeAway = document.querySelector('input[name="homeAway"]:checked')?.value;
                 const player = loggedInPlayer.name;
-                const hasPickedThisWeek = picks[player] && picks[player].some(pick => pick.week === currentWeek);
+                const hasPickedThisWeek = picks[player] && picks[player][currentWeek];
 
                 if (hasPickedThisWeek) {
                     pickMessage.textContent = `You have already made your pick for Match Week ${currentWeek}.`;
@@ -433,8 +433,8 @@
                 }
 
                 if (isPickValid(player, team, homeAway)) {
-                    if (!picks[player]) picks[player] = [];
-                    picks[player].push({ week: currentWeek, team: team, homeAway: homeAway, result: 'Pending', points: 0 });
+                    if (!picks[player]) picks[player] = {};
+                    picks[player][currentWeek] = { team: team, homeAway: homeAway, result: 'Pending', points: 0 };
                     saveData();
                     pickMessage.textContent = 'Pick submitted successfully!';
                     pickMessage.classList.remove('text-red-500');
@@ -465,30 +465,29 @@
                 });
                 
                 for (const player in picks) {
-                    picks[player].forEach(pick => {
-                        if (pick.week === currentWeek) {
-                            const gameResult = results[pick.team];
-                            if (gameResult === 'Win') {
-                                pick.result = 'Win';
-                                pick.points = 3;
-                            } else if (gameResult === 'Draw') {
-                                pick.result = 'Draw';
-                                pick.points = 1;
-                            } else if (gameResult === 'Loss') {
-                                pick.result = 'Loss';
-                                pick.points = 0;
-                            } else {
-                                pick.result = 'Pending';
-                                pick.points = 0;
-                            }
+                    const playerPick = picks[player][currentWeek];
+                    if (playerPick) {
+                        const gameResult = results[playerPick.team];
+                        if (gameResult === 'Win') {
+                            playerPick.result = 'Win';
+                            playerPick.points = 3;
+                        } else if (gameResult === 'Draw') {
+                            playerPick.result = 'Draw';
+                            playerPick.points = 1;
+                        } else if (gameResult === 'Loss') {
+                            playerPick.result = 'Loss';
+                            playerPick.points = 0;
+                        } else {
+                            playerPick.result = 'Pending';
+                            playerPick.points = 0;
                         }
-                    });
+                    }
                 }
     
                 for (const player in scores) {
                     let totalPoints = 0;
                     if (picks[player]) {
-                        picks[player].forEach(pick => {
+                        Object.values(picks[player]).forEach(pick => {
                             totalPoints += pick.points;
                         });
                     }
@@ -513,17 +512,17 @@
                 if (!confirmed) return;
                 
                 players.forEach(player => {
-                    const hasPicked = picks[player.name] && picks[player.name].some(pick => pick.week === currentWeek);
+                    const hasPicked = picks[player.name] && picks[player.name][currentWeek];
                     if (!hasPicked) {
-                        if (!picks[player.name]) picks[player.name] = [];
-                        picks[player.name].push({ week: currentWeek, team: 'No Pick', homeAway: 'N/A', result: 'Loss', points: 0 });
+                        if (!picks[player.name]) picks[player.name] = {};
+                        picks[player.name][currentWeek] = { week: currentWeek, team: 'No Pick', homeAway: 'N/A', result: 'Loss', points: 0 };
                     }
                 });
                 
                 for (const player in scores) {
                     let totalPoints = 0;
                     if (picks[player]) {
-                        picks[player].forEach(pick => {
+                        Object.values(picks[player]).forEach(pick => {
                             totalPoints += pick.points;
                         });
                     }
@@ -539,16 +538,28 @@
             });
         }
 
-        // --- Page Navigation Logic ---
+        const navLinks = {
+            'player-portal': document.getElementById('nav-player-portal'),
+            'leaderboard': document.getElementById('nav-leaderboard'),
+            'history': document.getElementById('nav-history'),
+            'rules': document.getElementById('nav-rules')
+        };
+
         function showPage(pageName) {
-            const pagesArray = Object.values(pages);
-            pagesArray.forEach(page => page.classList.add('hidden'));
-            pages[pageName].classList.remove('hidden');
-            const navLinksArray = Object.values(navLinks);
-            navLinksArray.forEach(link => link.classList.remove('active'));
-            if (navLinks[pageName]) {
-                navLinks[pageName].classList.add('active');
-            }
+            const allPages = ['playerPortal', 'leaderboard', 'history', 'rules', 'admin', 'login'];
+            allPages.forEach(p => {
+                const pageElement = document.getElementById(`page-${p}`);
+                if (pageElement) pageElement.classList.add('hidden');
+            });
+            const targetPage = document.getElementById(`page-${pageName}`);
+            if (targetPage) targetPage.classList.remove('hidden');
+
+            const allNavLinks = Object.values(navLinks);
+            allNavLinks.forEach(link => {
+                if (link) link.classList.remove('active');
+            });
+            const targetLink = document.getElementById(`nav-${pageName}`);
+            if (targetLink) targetLink.classList.add('active');
         }
         
         const navbar = document.getElementById('navbar');
@@ -566,19 +577,22 @@
         const isAdminView = new URLSearchParams(window.location.search).get('admin') === 'true';
         const playerIdFromUrl = new URLSearchParams(window.location.search).get('playerid');
         
-        if(isAdminView) {
+        if (isAdminView) {
+            loggedInPlayer = { name: 'Admin', pin: ADMIN_PIN };
+            if (navbar) navbar.classList.remove('hidden');
             const adminNavLink = document.createElement('button');
             adminNavLink.id = 'nav-admin';
             adminNavLink.className = 'page-link';
             adminNavLink.textContent = 'Admin';
             if (navbar) {
-                navbar.appendChild(adminNavLink);
-                adminNavLink.addEventListener('click', () => {
-                     showPage('admin');
-                     renderResultsTable();
-                     updateCurrentWeekDisplay();
-                });
-                navbar.classList.remove('hidden');
+                if (!document.getElementById('nav-admin')) {
+                    navbar.appendChild(adminNavLink);
+                    adminNavLink.addEventListener('click', () => {
+                         showPage('admin');
+                         renderResultsTable();
+                         updateCurrentWeekDisplay();
+                    });
+                }
             }
             showPage('admin');
             renderPlayers();
@@ -602,48 +616,33 @@
                 renderTeams();
             }
         } else {
-             if(navbar) navbar.classList.remove('hidden');
-             showPage('app');
-             renderTeams();
-        }
+            const loginBtn = document.getElementById('loginBtn');
+            const loginNameInput = document.getElementById('loginNameInput');
+            const loginPinInput = document.getElementById('loginPinInput');
+            const loginMessage = document.getElementById('loginMessage');
+            if(loginBtn) {
+                loginBtn.addEventListener('click', () => {
+                    const name = loginNameInput.value.trim();
+                    const pin = loginPinInput.value.trim();
+                    const player = players.find(p => p.name === name);
 
-        const submitPickBtnPlayer = document.getElementById('submitPickBtn');
-        if (submitPickBtnPlayer) {
-            submitPickBtnPlayer.addEventListener('click', () => {
-                const team = teamSelect.value;
-                const homeAway = document.querySelector('input[name="homeAway"]:checked')?.value;
-                if (!loggedInPlayer) {
-                    alert('Please use your unique player link to submit a pick.');
-                    return;
-                }
-                const player = loggedInPlayer.name;
-                const hasPickedThisWeek = picks[player] && picks[player].some(pick => pick.week === currentWeek);
-
-                if (hasPickedThisWeek) {
-                    pickMessage.textContent = `You have already made your pick for Match Week ${currentWeek}.`;
-                    pickMessage.classList.remove('text-green-600');
-                    pickMessage.classList.add('text-red-500');
-                    return;
-                }
-
-                if (isPickValid(player, team, homeAway)) {
-                    if (!picks[player]) picks[player] = [];
-                    picks[player].push({ week: currentWeek, team: team, homeAway: homeAway, result: 'Pending', points: 0 });
-                    saveData();
-                    pickMessage.textContent = 'Pick submitted successfully!';
-                    pickMessage.classList.remove('text-red-500');
-                    pickMessage.classList.add('text-green-600');
-                    teamSelect.value = '';
-                    if (document.querySelector('input[name="homeAway"]:checked')) {
-                         document.querySelector('input[name="homeAway"]:checked').checked = false;
+                    if (player && player.pin === pin) {
+                        loggedInPlayer = player;
+                        loginMessage.textContent = '';
+                        navbar.classList.remove('hidden');
+                        document.getElementById('player-name-display').textContent = loggedInPlayer.name;
+                        showPage('playerPortal');
+                        renderTeams();
+                        updateCurrentWeekDisplay();
+                    } else {
+                        loginMessage.textContent = 'Invalid name or PIN. Please try again.';
                     }
-                } else {
-                    pickMessage.textContent = `${player} has already picked ${team} for a ${homeAway} game.`;
-                    pickMessage.classList.remove('text-green-600');
-                    pickMessage.classList.add('text-red-500');
-                }
-            });
+                });
+            }
+            if(navbar) navbar.classList.remove('hidden');
+            showPage('login');
         }
+        
     });
 </script>
 
