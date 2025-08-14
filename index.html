@@ -3,677 +3,496 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Top of the Table 1805</title>
+    <title>Premier League Pick'em</title>
+    <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Custom styles for a cleaner look */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
             color: #1f2937;
         }
-        .container {
-            max-width: 900px;
-            margin: auto;
-            padding: 2rem;
-        }
-        .bg-gray-100 {
-            background-color: #f9fafb;
-        }
-        .btn-primary {
-            @apply bg-blue-600 text-white font-bold py-2 px-4 rounded-md shadow-md hover:bg-blue-700 transition duration-300;
-        }
-        .btn-secondary {
-            @apply bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-md hover:bg-gray-500 transition duration-300;
-        }
-        .page-link {
-            @apply px-4 py-2 rounded-md font-bold transition duration-300;
-        }
-        .page-link.active {
-            @apply bg-blue-600 text-white;
-        }
-        .page-link:not(.active) {
-            @apply text-gray-700 hover:bg-gray-200;
-        }
-        .hidden {
-            display: none;
-        }
-        .copy-link {
-            @apply text-blue-500 hover:underline cursor-pointer;
-        }
     </style>
 </head>
-<body class="bg-gray-100 p-4 min-h-screen flex flex-col items-center">
+<body class="p-6 md:p-10">
 
-<div id="app" class="container bg-white rounded-xl shadow-lg p-6 lg:p-10 my-8">
-    <h1 class="text-4xl font-extrabold text-center text-blue-800 mb-2">Top of the Table 1805</h1>
-    
-    <!-- Navigation Bar -->
-    <nav id="navbar" class="mb-8 flex justify-center gap-4 border-b pb-4">
-        <button id="nav-app" class="page-link active">Picks</button>
-        <button id="nav-leaderboard" class="page-link">Leaderboard</button>
-        <button id="nav-history" class="page-link">Picks History</button>
-        <button id="nav-rules" class="page-link">Rules</button>
+    <!-- Main Navigation -->
+    <nav class="flex justify-center md:justify-start items-center space-x-4 mb-8">
+        <a href="?" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Leaderboard</a>
+        <a href="?page=history" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Picks History</a>
+        <a href="?page=rules" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Rules</a>
+        <a href="?admin=true" class="text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Admin Portal</a>
     </nav>
-    
-    <!-- Pages Container -->
-    <div id="pages-container">
-        <!-- Main App Page -->
-        <div id="page-app" class="page">
-            <div id="picks-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4">Make Your Picks</h2>
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Match Week: <span id="current-week-display">1</span></h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="playerSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Player</label>
-                        <select id="playerSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="" disabled selected>Choose a player</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="teamSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
-                        <select id="teamSelect" class="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="" disabled selected>Choose a team</option>
-                        </select>
-                    </div>
-                    <div class="col-span-1 md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Home or Away</label>
-                        <div class="flex gap-4">
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="homeAway" value="Home" class="form-radio text-blue-600">
-                                <span class="ml-2">Home</span>
-                            </label>
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="homeAway" value="Away" class="form-radio text-blue-600">
-                                <span class="ml-2">Away</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex justify-end mt-4">
-                    <button id="submitPickBtn" class="btn-primary" disabled>Submit Pick</button>
-                </div>
-                <div id="pickMessage" class="mt-4 text-center text-red-500"></div>
-            </div>
-        </div>
 
-        <!-- Leaderboard Page -->
-        <div id="page-leaderboard" class="page hidden">
-            <h2 class="text-3xl font-bold text-blue-800 mb-4">Live Leaderboard</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full bg-white rounded-lg shadow">
-                    <thead>
-                        <tr class="bg-blue-600 text-white uppercase text-sm leading-normal">
-                            <th class="py-3 px-6 text-left rounded-tl-lg">Rank</th>
-                            <th class="py-3 px-6 text-left">Player</th>
-                            <th class="py-3 px-6 text-left rounded-tr-lg">Total Points</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboardTableBody" class="text-gray-600 text-sm font-light">
-                        <tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        <!-- Picks History Page -->
-        <div id="page-history" class="page hidden">
-            <h2 class="text-3xl font-bold text-blue-800 mb-4">Picks History</h2>
-            <div id="history-container">
-                <!-- Picks history will be injected here by JavaScript -->
-            </div>
-        </div>
+    <!-- Main App Container -->
+    <div id="app-container" class="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-gray-200">
+        <!-- Content will be rendered here by JavaScript -->
+        <h1 class="text-3xl font-bold mb-6 text-center">Loading...</h1>
+    </div>
 
-        <!-- Rules Page -->
-        <div id="page-rules" class="page hidden">
-            <h2 class="text-3xl font-bold text-blue-800 mb-4">League Rules</h2>
-            <p class="text-lg text-gray-700 mb-4">You have 40 possible picks for the 38 match weeks. Every team home and away.</p>
-            <p class="text-lg text-gray-700 mb-4">3 points for a win, 1 for a draw. If a match is a loss, you get 0 points.</p>
-            <p class="text-lg text-gray-700">The leaderboard is automatically tracked and updated once the weekly results are entered by the commissioner.</p>
-        </div>
-        
-        <!-- Admin Page (Hidden by default) -->
-        <div id="page-admin" class="page hidden">
-            <h2 class="text-3xl font-bold text-blue-800 mb-4">Admin Controls</h2>
-            <div class="mb-6 flex justify-between items-center">
-                <h3 class="text-xl font-bold">Current Match Week: <span id="current-week-display-admin">1</span></h3>
-                <button id="nextWeekBtn" class="btn-primary">Start Next Week</button>
-            </div>
+    <!-- JavaScript logic -->
+    <script>
+        // --- Data Initialization and Management ---
+
+        const APP_DATA_KEY = 'pl_pickem_data';
+        const TEAMS = [
+            "Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton",
+            "Chelsea", "Crystal Palace", "Everton", "Fulham", "Ipswich Town",
+            "Leicester City", "Liverpool", "Manchester City", "Manchester United",
+            "Newcastle United", "Nottingham Forest", "Southampton", "Tottenham Hotspur",
+            "West Ham United", "Wolverhampton Wanderers"
+        ].sort();
+
+        // Get app data from localStorage or initialize it
+        function getAppData() {
+            let data = JSON.parse(localStorage.getItem(APP_DATA_KEY));
+            if (!data) {
+                // Initialize with default values if no data exists
+                data = {
+                    players: [],
+                    picks: {}, // picks[week][playerPin] = { home: team, away: team }
+                    weeklyResults: {}, // weeklyResults[week][team] = 'W' | 'D' | 'L'
+                    currentWeek: 1
+                };
+                localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));
+            }
+            return data;
+        }
+
+        // Save app data to localStorage
+        function saveAppData(data) {
+            localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));
+        }
+
+        // --- Core Application Logic ---
+
+        // Main function to render the correct page based on URL parameters
+        function renderApp() {
+            const params = new URLSearchParams(window.location.search);
+            const appContainer = document.getElementById('app-container');
+            const page = params.get('page');
+
+            // Handle Admin Page
+            if (params.get('admin') === 'true') {
+                renderAdminPage(appContainer);
+                return;
+            }
+
+            // Handle Player Portal
+            if (params.get('playerid')) {
+                const playerPin = params.get('playerid');
+                const data = getAppData();
+                const player = data.players.find(p => p.pin === playerPin);
+                if (player) {
+                    renderPlayerPortal(appContainer, player, data);
+                    return;
+                } else {
+                    appContainer.innerHTML = `<p class="text-red-500 text-center text-xl">Invalid player ID. Please check your link.</p>`;
+                    return;
+                }
+            }
+
+            // Handle Public Pages
+            switch (page) {
+                case 'history':
+                    renderPicksHistoryPage(appContainer);
+                    break;
+                case 'rules':
+                    renderRulesPage(appContainer);
+                    break;
+                default:
+                    renderLeaderboardPage(appContainer);
+                    break;
+            }
+        }
+
+        // --- Page Render Functions ---
+
+        // Renders the Admin Page
+        function renderAdminPage(container) {
+            const data = getAppData();
             
-            <div class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4">Manage Players</h2>
-                <div class="flex flex-col sm:flex-row gap-4 mb-4">
-                    <input type="text" id="playerNameInput" placeholder="Enter player name" class="flex-grow p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button id="addPlayerBtn" class="btn-primary w-full sm:w-auto">Add Player</button>
-                </div>
-                <div id="admin-player-list">
-                    <!-- Player list with links will be injected here -->
-                </div>
-            </div>
+            let playerListHtml = data.players.length > 0 ?
+                `<ul>${data.players.map(p => `
+                    <li class="flex items-center justify-between p-2 my-1 bg-gray-100 rounded-lg">
+                        <span>${p.name} (PIN: ${p.pin})</span>
+                        <button onclick="removePlayer('${p.pin}')" class="text-red-500 hover:text-red-700 font-bold ml-4">Remove</button>
+                    </li>`).join('')}</ul>` :
+                `<p class="text-gray-500">No players registered yet.</p>`;
 
-            <!-- Game Results Section -->
-            <div id="results-section" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-8">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4">Enter Weekly Results</h2>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full bg-white rounded-lg shadow">
-                        <thead>
-                            <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
-                                <th class="py-3 px-6 text-left">Team</th>
-                                <th class="py-3 px-6 text-left">Result</th>
+            let resultsHtml = TEAMS.map(team => `
+                <div class="flex items-center space-x-2">
+                    <label class="font-medium">${team}</label>
+                    <select id="result-${team.replace(/\s/g, '-')}" class="p-2 border rounded-md shadow-sm flex-grow">
+                        <option value="">-- Select Result --</option>
+                        <option value="W">Win (W)</option>
+                        <option value="D">Draw (D)</option>
+                        <option value="L">Loss (L)</option>
+                    </select>
+                </div>
+            `).join('');
+
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold mb-4">Admin Portal - Week ${data.currentWeek}</h2>
+
+                <div class="mb-8">
+                    <h3 class="text-xl font-semibold mb-2">Add New Player</h3>
+                    <form id="add-player-form" class="flex flex-col md:flex-row gap-4 mb-4">
+                        <input type="text" id="playerName" placeholder="Player Name" class="p-2 border rounded-md shadow-sm flex-grow" required>
+                        <input type="text" id="playerPin" placeholder="Unique PIN (e.g., 1234)" class="p-2 border rounded-md shadow-sm flex-grow" required>
+                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors">Add Player</button>
+                    </form>
+                    <div class="mt-4">
+                        <h3 class="text-xl font-semibold mb-2">Registered Players</h3>
+                        ${playerListHtml}
+                    </div>
+                </div>
+
+                <hr class="my-6 border-gray-300">
+
+                <div class="mb-8">
+                    <h3 class="text-xl font-semibold mb-2">Enter Weekly Results (Week ${data.currentWeek})</h3>
+                    <div id="results-form-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        ${resultsHtml}
+                    </div>
+                </div>
+
+                <div class="flex justify-center">
+                    <button onclick="startNextWeek()" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">Start Next Week & Calculate Points</button>
+                </div>
+            `;
+
+            // Attach event listener for the Add Player form
+            document.getElementById('add-player-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const name = document.getElementById('playerName').value.trim();
+                const pin = document.getElementById('playerPin').value.trim();
+                addPlayer(name, pin);
+            });
+        }
+
+        // Renders the Player Portal
+        function renderPlayerPortal(container, player, data) {
+            const currentWeek = data.currentWeek;
+            const playerPicks = data.picks[currentWeek] && data.picks[currentWeek][player.pin];
+            const isWeekLocked = data.weeklyResults[currentWeek];
+
+            let contentHtml = '';
+            if (isWeekLocked) {
+                contentHtml = `
+                    <p class="text-gray-600 text-lg">Picks for Week ${currentWeek} have been locked by the commissioner.</p>
+                    <p class="mt-4 text-center">
+                        <a href="?" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">View Leaderboard</a>
+                    </p>
+                `;
+            } else if (playerPicks) {
+                contentHtml = `
+                    <p class="text-green-600 text-lg font-semibold">Your pick for Week ${currentWeek} has been saved!</p>
+                    <div class="mt-4 p-4 border rounded-lg bg-green-50">
+                        <p class="font-medium">Home Team: <span class="text-gray-800">${playerPicks.home}</span></p>
+                        <p class="font-medium">Away Team: <span class="text-gray-800">${playerPicks.away}</span></p>
+                    </div>
+                    <p class="mt-4 text-gray-600">The commissioner will enter results soon. You can view the leaderboard or picks history from the main page.</p>
+                `;
+            } else {
+                // Generate team options, excluding teams already picked by the player
+                const usedTeams = getUsedTeamsForPlayer(player.pin, data);
+                const homeTeamsOptions = TEAMS.filter(t => !usedTeams.home.includes(t))
+                                                .map(t => `<option value="${t}">${t}</option>`).join('');
+                const awayTeamsOptions = TEAMS.filter(t => !usedTeams.away.includes(t))
+                                                .map(t => `<option value="${t}">${t}</option>`).join('');
+                
+                contentHtml = `
+                    <h3 class="text-xl font-semibold mb-4">Make Your Pick for Week ${currentWeek}</h3>
+                    <form id="make-pick-form" class="space-y-4">
+                        <div>
+                            <label for="home-team" class="block font-medium mb-1">Home Pick</label>
+                            <select id="home-team" class="w-full p-2 border rounded-md shadow-sm" required>
+                                <option value="">-- Select Home Team --</option>
+                                ${homeTeamsOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="away-team" class="block font-medium mb-1">Away Pick</label>
+                            <select id="away-team" class="w-full p-2 border rounded-md shadow-sm" required>
+                                <option value="">-- Select Away Team --</option>
+                                ${awayTeamsOptions}
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors">Submit Pick</button>
+                    </form>
+                `;
+            }
+
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold mb-4">Welcome, ${player.name}!</h2>
+                ${contentHtml}
+            `;
+
+            // Attach event listener for the Make Pick form if it exists
+            const pickForm = document.getElementById('make-pick-form');
+            if (pickForm) {
+                pickForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const homeTeam = document.getElementById('home-team').value;
+                    const awayTeam = document.getElementById('away-team').value;
+                    if (homeTeam === awayTeam) {
+                        alert("You cannot pick the same team for both home and away picks.");
+                        return;
+                    }
+                    savePlayerPick(player.pin, homeTeam, awayTeam);
+                });
+            }
+        }
+
+        // Renders the Leaderboard Page
+        function renderLeaderboardPage(container) {
+            const data = getAppData();
+            // Sort players by total points, descending
+            const sortedPlayers = [...data.players].sort((a, b) => b.totalPoints - a.totalPoints);
+            
+            const tableRows = sortedPlayers.length > 0 ?
+                sortedPlayers.map((player, index) => `
+                    <tr class="${index % 2 === 0 ? 'bg-gray-100' : 'bg-white'}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${index + 1}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${player.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${player.totalPoints}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <a href="?playerid=${player.pin}" class="text-blue-600 hover:text-blue-900">Link</a>
+                        </td>
+                    </tr>
+                `).join('') :
+                `<tr><td colspan="4" class="text-center py-4 text-gray-500">No players on the leaderboard yet.</td></tr>`;
+
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold mb-4">Leaderboard</h2>
+                <div class="overflow-x-auto shadow-md rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Points</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player Link</th>
                             </tr>
                         </thead>
-                        <tbody id="resultsTableBody" class="text-gray-600 text-sm font-light">
-                            <!-- Teams to be injected here -->
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${tableRows}
                         </tbody>
                     </table>
                 </div>
-                <div class="flex justify-end mt-4">
-                    <button id="updateScoresBtn" class="btn-primary">Update Scores</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // --- JavaScript for the Premier League Pick'em App ---
-    
-    // --- Data Model & Initial State ---
-    const TEAMS = [
-        "AFC Bournemouth", "Arsenal", "Aston Villa", "Brentford", "Brighton & Hove Albion",
-        "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham", "Leeds United",
-        "Liverpool", "Manchester City", "Manchester United", "Newcastle United",
-        "Nottingham Forest", "Sunderland", "Tottenham Hotspur", "West Ham United",
-        "Wolverhampton Wanderers"
-    ].sort();
-
-    let players = JSON.parse(localStorage.getItem('players')) || [];
-    let picks = JSON.parse(localStorage.getItem('picks')) || {};
-    let scores = JSON.parse(localStorage.getItem('scores')) || {};
-    let currentWeek = JSON.parse(localStorage.getItem('currentWeek')) || 1;
-    let loggedInPlayer = null;
-    
-    const ADMIN_PIN = "1805"; // You can change this to a secure PIN
-
-    // --- DOM Elements ---
-    const pages = {
-        app: document.getElementById('page-app'),
-        leaderboard: document.getElementById('page-leaderboard'),
-        history: document.getElementById('page-history'),
-        rules: document.getElementById('page-rules'),
-        admin: document.getElementById('page-admin'),
-        playerPortal: document.getElementById('page-player-portal')
-    };
-    const navbar = document.getElementById('navbar');
-    const navLinks = {
-        app: document.getElementById('nav-app'),
-        leaderboard: document.getElementById('nav-leaderboard'),
-        history: document.getElementById('nav-history'),
-        rules: document.getElementById('nav-rules')
-    };
-
-    const playerNameInput = document.getElementById('playerNameInput');
-    const playerPinInput = document.getElementById('playerPinInput');
-    const addPlayerBtn = document.getElementById('addPlayerBtn');
-    const adminPlayerList = document.getElementById('admin-player-list');
-    const teamSelect = document.getElementById('teamSelect');
-    const submitPickBtn = document.getElementById('submitPickBtn');
-    const pickMessage = document.getElementById('pickMessage');
-    const resultsTableBody = document.getElementById('resultsTableBody');
-    const leaderboardTableBody = document.getElementById('leaderboardTableBody');
-    const historyContainer = document.getElementById('history-container');
-    const currentWeekDisplay = document.getElementById('current-week-display');
-    const currentWeekDisplayAdmin = document.getElementById('current-week-display-admin');
-    const nextWeekBtn = document.getElementById('nextWeekBtn');
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const playerIdFromUrl = urlParams.get('playerid');
-    const isAdminView = urlParams.get('admin') === 'true';
-    
-    // --- Check for URL parameters on load to determine view
-    if(isAdminView) {
-        loggedInPlayer = { name: 'Admin', pin: ADMIN_PIN };
-    } else if (playerIdFromUrl) {
-        loggedInPlayer = players.find(p => p.pin === playerIdFromUrl);
-    }
-    
-    // --- Utility Functions ---
-    function saveData() {
-        localStorage.setItem('players', JSON.stringify(players));
-        localStorage.setItem('picks', JSON.stringify(picks));
-        localStorage.setItem('scores', JSON.stringify(scores));
-        localStorage.setItem('currentWeek', JSON.stringify(currentWeek));
-    }
-    
-    function renderAdminPlayers() {
-        if(loggedInPlayer && loggedInPlayer.name === 'Admin') {
-            adminPlayerList.innerHTML = players.map(player => `
-                <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm mb-2">
-                    <span class="font-medium">${player.name}</span>
-                    <div class="flex gap-2">
-                        <button class="btn-secondary text-xs" onclick="makeAdmin('${player.name}')">
-                            Make Admin
-                        </button>
-                        <button class="btn-red text-xs" onclick="removePlayer('${player.name}')">Remove</button>
-                    </div>
-                </div>
-            `).join('');
+            `;
         }
-    }
-    
-    window.removePlayer = function(playerName) {
-        if (!confirm(`Are you sure you want to remove ${playerName}?`)) return;
-        
-        players = players.filter(p => p.name !== playerName);
-        delete picks[playerName];
-        delete scores[playerName];
-        saveData();
-        renderAdminPlayers();
-        renderLeaderboard();
-        renderPicksHistory();
-        alert('Player removed successfully.');
-    };
-    
-    window.makeAdmin = function(playerName) {
-        if (!confirm(`Are you sure you want to make ${playerName} an admin?`)) return;
-        
-        const player = players.find(p => p.name === playerName);
-        if (player) {
-            player.pin = ADMIN_PIN;
-            alert(`${playerName} is now an admin. Their PIN is the admin PIN.`);
-            saveData();
-            renderAdminPlayers();
-        }
-    };
-    
-    function renderTeams() {
-        if (!teamSelect) return;
-        teamSelect.innerHTML = '<option value="" disabled selected>Choose a team</option>';
-        TEAMS.forEach(team => {
-            const option = document.createElement('option');
-            option.value = team;
-            option.textContent = team;
-            teamSelect.appendChild(option);
-        });
-    }
-    
-    function renderResultsTable() {
-        if (!resultsTableBody) return;
-        resultsTableBody.innerHTML = TEAMS.map(team => `
-            <tr class="border-b border-gray-200 hover:bg-gray-100">
-                <td class="py-3 px-6 text-left whitespace-nowrap font-medium">${team}</td>
-                <td class="py-3 px-6 text-left">
-                    <select data-team="${team}" class="result-select w-full p-2 rounded-md border border-gray-300">
-                        <option value="Pending">Pending</option>
-                        <option value="Win">Win</option>
-                        <option value="Loss">Loss</option>
-                        <option value="Draw">Draw</option>
-                    </select>
-                </td>
-            </tr>
-        `).join('');
-    }
-    
-    function renderLeaderboard() {
-        if (!leaderboardTableBody) return;
-        const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a);
-        if (sortedScores.length === 0) {
-            leaderboardTableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4">No players yet.</td></tr>';
-            return;
-        }
-        leaderboardTableBody.innerHTML = sortedScores.map(([player, score], index) => `
-            <tr class="border-b border-gray-200 last:border-b-0 hover:bg-gray-100">
-                <td class="py-3 px-6 text-left font-medium">${index + 1}</td>
-                <td class="py-3 px-6 text-left">${player}</td>
-                <td class="py-3 px-6 text-left font-bold text-blue-600">${score}</td>
-            </tr>
-        `).join('');
-    }
-    
-    function renderPicksHistory() {
-        if (!historyContainer) return;
-        let historyHTML = '';
-        const allWeeks = Object.values(picks).flatMap(playerPicks => Object.values(playerPicks).map(p => p.week));
-        const uniqueWeeks = [...new Set(allWeeks)].sort((a, b) => a - b);
-        
-        if (uniqueWeeks.length === 0) {
-            historyContainer.innerHTML = '<p class="text-center text-gray-500">No picks have been made yet.</p>';
-            return;
-        }
-        
-        uniqueWeeks.forEach(week => {
-            const weekPicks = {};
-            for (const player in picks) {
-                const playerPick = picks[player][week];
-                if (playerPick) {
-                    weekPicks[player] = [playerPick];
+
+        // Renders the Picks History Page
+        function renderPicksHistoryPage(container) {
+            const data = getAppData();
+            const picksHtml = [];
+
+            // Iterate through each week
+            for (let week = 1; week <= data.currentWeek; week++) {
+                // Only show weeks with picks or results
+                if (data.picks[week] || data.weeklyResults[week]) {
+                    picksHtml.push(`
+                        <div class="mb-6 p-4 border rounded-lg shadow-sm">
+                            <h3 class="text-xl font-semibold mb-2">Match Week ${week}</h3>
+                            <div class="space-y-4">
+                    `);
+                    
+                    const players = data.players;
+                    let hasPicksForWeek = false;
+
+                    players.forEach(player => {
+                        const playerPicks = data.picks[week] ? data.picks[week][player.pin] : null;
+                        if (playerPicks) {
+                            hasPicksForWeek = true;
+                            const homeResult = data.weeklyResults[week] ? data.weeklyResults[week][playerPicks.home] : null;
+                            const awayResult = data.weeklyResults[week] ? data.weeklyResults[week][playerPicks.away] : null;
+                            const homePoints = homeResult === 'W' ? 3 : homeResult === 'D' ? 1 : 0;
+                            const awayPoints = awayResult === 'W' ? 3 : awayResult === 'D' ? 1 : 0;
+                            const totalPickPoints = homePoints + awayPoints;
+
+                            picksHtml.push(`
+                                <div class="bg-gray-50 p-3 rounded-md">
+                                    <p class="font-bold">${player.name}'s Picks:</p>
+                                    <p class="ml-4">
+                                        Home Pick: ${playerPicks.home} 
+                                        <span class="font-medium text-${homeResult === 'W' ? 'green' : homeResult === 'D' ? 'yellow' : 'red'}-600">(${homeResult || 'Pending'})</span> -
+                                        Points: ${homeResult ? homePoints : '0'}
+                                    </p>
+                                    <p class="ml-4">
+                                        Away Pick: ${playerPicks.away}
+                                        <span class="font-medium text-${awayResult === 'W' ? 'green' : awayResult === 'D' ? 'yellow' : 'red'}-600">(${awayResult || 'Pending'})</span> -
+                                        Points: ${awayResult ? awayPoints : '0'}
+                                    </p>
+                                    <p class="font-bold mt-2">Total Points for Week: ${totalPickPoints}</p>
+                                </div>
+                            `);
+                        }
+                    });
+
+                    if (!hasPicksForWeek) {
+                        picksHtml.push(`<p class="text-gray-500 ml-4">No picks were made this week.</p>`);
+                    }
+
+                    picksHtml.push(`</div></div>`);
                 }
             }
-            
-            historyHTML += `
-                <div class="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
-                    <h3 class="text-xl font-bold mb-4">Match Week ${week}</h3>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full bg-white rounded-lg shadow">
-                            <thead>
-                                <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
-                                    <th class="py-3 px-6 text-left">Player</th>
-                                    <th class="py-3 px-6 text-left">Team Picked</th>
-                                    <th class="py-3 px-6 text-left">Result</th>
-                                    <th class="py-3 px-6 text-left">Points</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-gray-600 text-sm font-light">
-                                ${Object.entries(weekPicks).map(([player, playerPicks]) =>
-                                    playerPicks.map(pick => `
-                                        <tr class="border-b border-gray-200 hover:bg-gray-100">
-                                            <td class="py-3 px-6 text-left whitespace-nowrap font-medium">${player}</td>
-                                            <td class="py-3 px-6 text-left">${pick.team} (${pick.homeAway})</td>
-                                            <td class="py-3 px-6 text-left">${pick.result}</td>
-                                            <td class="py-3 px-6 text-left">${pick.points}</td>
-                                        </tr>
-                                    `).join('')
-                                ).join('')}
-                            </tbody>
-                        </table>
-                    </div>
+
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold mb-4">Picks History</h2>
+                <div class="space-y-6">
+                    ${picksHtml.join('') || '<p class="text-center text-gray-500">No picks have been made yet.</p>'}
                 </div>
             `;
-        });
-        historyContainer.innerHTML = historyHTML;
-    }
-    
-    function isPickValid(player, team, homeAway) {
-        if (!picks[player]) return true;
-        
-        let homeCount = 0;
-        let awayCount = 0;
-
-        if (picks[player]) {
-            Object.values(picks[player]).forEach(pick => {
-                if (pick.team === team && pick.homeAway === "Home") homeCount++;
-                if (pick.team === team && pick.homeAway === "Away") awayCount++;
-            });
         }
-        
-        if (homeAway === "Home" && homeCount >= 1) return false;
-        if (homeAway === "Away" && awayCount >= 1) return false;
-        
-        return true;
-    }
-    
-    function updateCurrentWeekDisplay() {
-        const displayElement = document.getElementById('current-week-display');
-        if (displayElement) displayElement.textContent = currentWeek;
-        const displayElementAdmin = document.getElementById('current-week-display-admin');
-        if (displayElementAdmin) displayElementAdmin.textContent = currentWeek;
-    }
-    
-    // --- Event Listeners ---
-    document.addEventListener('DOMContentLoaded', () => {
-        const playerNameInput = document.getElementById('playerNameInput');
-        const playerPinInput = document.getElementById('playerPinInput');
-        const addPlayerBtn = document.getElementById('addPlayerBtn');
-        if(addPlayerBtn) {
-            addPlayerBtn.addEventListener('click', () => {
-                const name = playerNameInput.value.trim();
-                const pin = playerPinInput.value.trim();
-                if (name && pin && !players.find(p => p.name === name)) {
-                    players.push({ name, pin });
-                    scores[name] = 0;
-                    picks[name] = {};
-                    saveData();
-                    renderPlayers();
-                    playerNameInput.value = '';
-                    playerPinInput.value = '';
-                    renderLeaderboard();
-                    alert(`Player added. Their unique link is: ${window.location.origin}${window.location.pathname}?playerid=${pin}`);
+
+        // Renders the Rules Page
+        function renderRulesPage(container) {
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold mb-4">Official Rules</h2>
+                <div class="prose max-w-none text-gray-700">
+                    <p>You have 40 possible picks for the 38 match weeks. Every team, home and away.</p>
+                    <ul class="list-disc list-inside">
+                        <li><strong>3 points</strong> for a Win.</li>
+                        <li><strong>1 point</strong> for a Draw.</li>
+                        <li><strong>0 points</strong> for a Loss.</li>
+                    </ul>
+                    <p>The leaderboard is automatically tracked and updated once the weekly results are entered by the commissioner on the Admin Portal.</p>
+                </div>
+            `;
+        }
+
+
+        // --- Data Manipulation Functions ---
+
+        // Adds a new player to the data
+        function addPlayer(name, pin) {
+            const data = getAppData();
+            if (data.players.find(p => p.pin === pin)) {
+                alert("A player with this PIN already exists. Please choose a different one.");
+                return;
+            }
+            data.players.push({
+                name: name,
+                pin: pin,
+                totalPoints: 0,
+                homePicksUsed: [],
+                awayPicksUsed: []
+            });
+            saveAppData(data);
+            renderApp(); // Re-render the admin page to show the new player
+        }
+
+        // Removes a player from the data
+        function removePlayer(pin) {
+            if (!confirm("Are you sure you want to remove this player? This action cannot be undone.")) {
+                return;
+            }
+            const data = getAppData();
+            data.players = data.players.filter(p => p.pin !== pin);
+            saveAppData(data);
+            renderApp();
+        }
+
+        // Saves a player's pick for the current week
+        function savePlayerPick(playerPin, homeTeam, awayTeam) {
+            const data = getAppData();
+            const currentWeek = data.currentWeek;
+            
+            // Initialize picks for the current week if they don't exist
+            if (!data.picks[currentWeek]) {
+                data.picks[currentWeek] = {};
+            }
+
+            // Check if player has already used this team for this type of pick
+            const player = data.players.find(p => p.pin === playerPin);
+            if (player.homePicksUsed.includes(homeTeam)) {
+                alert(`You have already used ${homeTeam} as a home pick.`);
+                return;
+            }
+            if (player.awayPicksUsed.includes(awayTeam)) {
+                alert(`You have already used ${awayTeam} as an away pick.`);
+                return;
+            }
+            
+            // Save the pick
+            data.picks[currentWeek][playerPin] = { home: homeTeam, away: awayTeam };
+
+            // Update the player's list of used teams
+            player.homePicksUsed.push(homeTeam);
+            player.awayPicksUsed.push(awayTeam);
+            
+            saveAppData(data);
+            renderApp(); // Re-render to show success message
+        }
+
+        // Calculates points and advances to the next week
+        function startNextWeek() {
+            const data = getAppData();
+            const currentWeek = data.currentWeek;
+
+            // Gather weekly results from the form
+            const weeklyResults = {};
+            let isResultsComplete = true;
+            TEAMS.forEach(team => {
+                const selectEl = document.getElementById(`result-${team.replace(/\s/g, '-')}`);
+                if (selectEl && selectEl.value) {
+                    weeklyResults[team] = selectEl.value;
                 } else {
-                    alert('Player already exists or name/PIN is invalid.');
+                    isResultsComplete = false;
                 }
             });
-        }
-        
-        const submitPickBtn = document.getElementById('submitPickBtn');
-        const pickMessage = document.getElementById('pickMessage');
-        if(submitPickBtn) {
-            submitPickBtn.addEventListener('click', () => {
-                const team = teamSelect.value;
-                const homeAway = document.querySelector('input[name="homeAway"]:checked')?.value;
-                const player = loggedInPlayer.name;
-                const hasPickedThisWeek = picks[player] && picks[player][currentWeek];
 
-                if (hasPickedThisWeek) {
-                    pickMessage.textContent = `You have already made your pick for Match Week ${currentWeek}.`;
-                    pickMessage.classList.remove('text-green-600');
-                    pickMessage.classList.add('text-red-500');
+            if (!isResultsComplete) {
+                if (!confirm("Not all team results have been entered. Do you want to proceed anyway? Players with picks for unentered teams will get 0 points.")) {
                     return;
-                }
-
-                if (isPickValid(player, team, homeAway)) {
-                    if (!picks[player]) picks[player] = {};
-                    picks[player][currentWeek] = { week: currentWeek, team: team, homeAway: homeAway, result: 'Pending', points: 0 };
-                    saveData();
-                    pickMessage.textContent = 'Pick submitted successfully!';
-                    pickMessage.classList.remove('text-red-500');
-                    pickMessage.classList.add('text-green-600');
-                    teamSelect.value = '';
-                    if (document.querySelector('input[name="homeAway"]:checked')) {
-                         document.querySelector('input[name="homeAway"]:checked').checked = false;
-                    }
-                } else {
-                    pickMessage.textContent = `${player} has already picked ${team} for a ${homeAway} game.`;
-                    pickMessage.classList.remove('text-green-600');
-                    pickMessage.classList.add('text-red-500');
-                }
-            });
-        }
-
-        const updateScoresBtn = document.getElementById('updateScoresBtn');
-        if(updateScoresBtn) {
-            updateScoresBtn.addEventListener('click', (e) => {
-                if (!loggedInPlayer || loggedInPlayer.name !== 'Admin' || loggedInPlayer.pin !== ADMIN_PIN) {
-                    alert("You do not have permission to update scores.");
-                    return;
-                }
-                const results = {};
-                document.querySelectorAll('.result-select').forEach(select => {
-                    const team = select.dataset.team;
-                    results[team] = select.value;
-                });
-                
-                for (const player in picks) {
-                    const playerPick = picks[player][currentWeek];
-                    if (playerPick) {
-                        const gameResult = results[playerPick.team];
-                        if (gameResult === 'Win') {
-                            playerPick.result = 'Win';
-                            playerPick.points = 3;
-                        } else if (gameResult === 'Draw') {
-                            playerPick.result = 'Draw';
-                            playerPick.points = 1;
-                        } else if (gameResult === 'Loss') {
-                            playerPick.result = 'Loss';
-                            playerPick.points = 0;
-                        } else {
-                            playerPick.result = 'Pending';
-                            playerPick.points = 0;
-                        }
-                    }
-                });
-    
-                for (const player in scores) {
-                    let totalPoints = 0;
-                    if (picks[player]) {
-                        Object.values(picks[player]).forEach(pick => {
-                            totalPoints += pick.points;
-                        });
-                    }
-                    scores[player] = totalPoints;
-                }
-                
-                saveData();
-                renderLeaderboard();
-                renderPicksHistory();
-                alert(`Scores have been updated for Match Week ${currentWeek}!`);
-            });
-        }
-        
-        const nextWeekBtn = document.getElementById('nextWeekBtn');
-        if(nextWeekBtn) {
-            nextWeekBtn.addEventListener('click', () => {
-                if (!loggedInPlayer || loggedInPlayer.name !== 'Admin' || loggedInPlayer.pin !== ADMIN_PIN) {
-                    alert("You do not have permission to start a new week.");
-                    return;
-                }
-                const confirmed = confirm("Are you sure you want to start the next match week? This will lock picks for the current week.");
-                if (!confirmed) return;
-                
-                players.forEach(player => {
-                    const hasPicked = picks[player.name] && picks[player.name][currentWeek];
-                    if (!hasPicked) {
-                        if (!picks[player.name]) picks[player.name] = {};
-                        picks[player.name][currentWeek] = { week: currentWeek, team: 'No Pick', homeAway: 'N/A', result: 'Loss', points: 0 };
-                    }
-                });
-                
-                for (const player in scores) {
-                    let totalPoints = 0;
-                    if (picks[player]) {
-                        Object.values(picks[player]).forEach(pick => {
-                            totalPoints += pick.points;
-                        });
-                    }
-                    scores[player] = totalPoints;
-                }
-    
-                currentWeek++;
-                saveData();
-                updateCurrentWeekDisplay();
-                renderLeaderboard();
-                renderPicksHistory();
-                alert(`Match Week ${currentWeek - 1} is now locked. Starting Match Week ${currentWeek}!`);
-            });
-        }
-
-        const navLinks = {
-            'player-portal': document.getElementById('nav-player-portal'),
-            'leaderboard': document.getElementById('nav-leaderboard'),
-            'history': document.getElementById('nav-history'),
-            'rules': document.getElementById('nav-rules')
-        };
-
-        function showPage(pageName) {
-            const allPages = ['playerPortal', 'leaderboard', 'history', 'rules', 'admin'];
-            allPages.forEach(p => {
-                const pageElement = document.getElementById(`page-${p}`);
-                if (pageElement) pageElement.classList.add('hidden');
-            });
-            const targetPage = document.getElementById(`page-${pageName}`);
-            if (targetPage) targetPage.classList.remove('hidden');
-
-            const allNavLinks = Object.values(navLinks);
-            allNavLinks.forEach(link => {
-                if (link) link.classList.remove('active');
-            });
-            const targetLink = document.getElementById(`nav-${pageName}`);
-            if (targetLink) targetLink.classList.add('active');
-        }
-        
-        const navbar = document.getElementById('navbar');
-        if (navbar) {
-            navbar.addEventListener('click', (e) => {
-                if (e.target.tagName === 'BUTTON') {
-                    const pageName = e.target.id.replace('nav-', '');
-                    showPage(pageName);
-                    if (pageName === 'leaderboard') renderLeaderboard();
-                    if (pageName === 'history') renderPicksHistory();
-                }
-            });
-        }
-        
-        const isAdminView = new URLSearchParams(window.location.search).get('admin') === 'true';
-        const playerIdFromUrl = new URLSearchParams(window.location.search).get('playerid');
-        
-        if (isAdminView) {
-            loggedInPlayer = { name: 'Admin', pin: ADMIN_PIN };
-            if (navbar) navbar.classList.remove('hidden');
-            const adminNavLink = document.createElement('button');
-            adminNavLink.id = 'nav-admin';
-            adminNavLink.className = 'page-link';
-            adminNavLink.textContent = 'Admin';
-            if (navbar) {
-                if (!document.getElementById('nav-admin')) {
-                    navbar.appendChild(adminNavLink);
-                    adminNavLink.addEventListener('click', () => {
-                         showPage('admin');
-                         renderResultsTable();
-                         updateCurrentWeekDisplay();
-                    });
                 }
             }
-            showPage('admin');
-            renderPlayers();
-            renderTeams();
-            renderResultsTable();
-            renderLeaderboard();
-            updateCurrentWeekDisplay();
-        } else if (playerIdFromUrl) {
-            const player = players.find(p => p.pin === playerIdFromUrl);
-            if (player) {
-                loggedInPlayer = player;
-                if(navbar) navbar.classList.remove('hidden');
-                document.getElementById('player-name-display').textContent = loggedInPlayer.name;
-                showPage('playerPortal');
-                renderTeams();
-                updateCurrentWeekDisplay();
-            } else {
-                alert('Invalid player link.');
-            }
-        } else {
-            // Default view for a non-admin, non-player link
-            showPage('app');
-            renderTeams();
-        }
-        
-        const submitPickBtnPlayer = document.getElementById('submitPickBtn');
-        if (submitPickBtnPlayer) {
-            submitPickBtnPlayer.addEventListener('click', () => {
-                const team = teamSelect.value;
-                const homeAway = document.querySelector('input[name="homeAway"]:checked')?.value;
-                if (!loggedInPlayer) {
-                    alert('Please use your unique player link to submit a pick.');
-                    return;
-                }
-                const player = loggedInPlayer.name;
-                const hasPickedThisWeek = picks[player] && picks[player][currentWeek];
 
-                if (hasPickedThisWeek) {
-                    pickMessage.textContent = `You have already made your pick for Match Week ${currentWeek}.`;
-                    pickMessage.classList.remove('text-green-600');
-                    pickMessage.classList.add('text-red-500');
-                    return;
-                }
+            // Save the results
+            data.weeklyResults[currentWeek] = weeklyResults;
 
-                if (isPickValid(player, team, homeAway)) {
-                    if (!picks[player]) picks[player] = {};
-                    picks[player][currentWeek] = { week: currentWeek, team: team, homeAway: homeAway, result: 'Pending', points: 0 };
-                    saveData();
-                    pickMessage.textContent = 'Pick submitted successfully!';
-                    pickMessage.classList.remove('text-red-500');
-                    pickMessage.classList.add('text-green-600');
-                    teamSelect.value = '';
-                    if (document.querySelector('input[name="homeAway"]:checked')) {
-                         document.querySelector('input[name="homeAway"]:checked').checked = false;
-                    }
-                } else {
-                    pickMessage.textContent = `${player} has already picked ${team} for a ${homeAway} game.`;
-                    pickMessage.classList.remove('text-green-600');
-                    pickMessage.classList.add('text-red-500');
+            // Calculate points for all players
+            data.players.forEach(player => {
+                let weekPoints = 0;
+                const playerPicks = data.picks[currentWeek] ? data.picks[currentWeek][player.pin] : null;
+
+                if (playerPicks) {
+                    // Check home pick
+                    const homeResult = weeklyResults[playerPicks.home];
+                    if (homeResult === 'W') weekPoints += 3;
+                    else if (homeResult === 'D') weekPoints += 1;
+
+                    // Check away pick
+                    const awayResult = weeklyResults[playerPicks.away];
+                    if (awayResult === 'W') weekPoints += 3;
+                    else if (awayResult === 'D') weekPoints += 1;
                 }
+                
+                // Add to total points
+                player.totalPoints += weekPoints;
             });
+
+            // Advance to the next week
+            data.currentWeek++;
+            saveAppData(data);
+            renderApp(); // Re-render the admin page
         }
-    });
-</script>
+
+        // Helper function to get a player's used teams
+        function getUsedTeamsForPlayer(playerPin, data) {
+            const player = data.players.find(p => p.pin === playerPin);
+            return {
+                home: player.homePicksUsed,
+                away: player.awayPicksUsed
+            };
+        }
+
+        // Initial render on page load
+        window.onload = renderApp;
+    </script>
 
 </body>
 </html>
