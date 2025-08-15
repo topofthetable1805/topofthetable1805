@@ -128,6 +128,11 @@
         // Function to render the navigation links based on the current page
         function renderNav() {
             const nav = document.getElementById('main-nav');
+            if (!nav) { // Safety check to ensure the nav element exists
+                console.error('Navigation element not found.');
+                return;
+            }
+
             const params = new URLSearchParams(window.location.search);
             const isAdminPage = params.get('admin') === 'true';
             
