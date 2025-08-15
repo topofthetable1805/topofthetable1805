@@ -262,23 +262,19 @@
 
         // Renders the Player Portal
         function renderPlayerPortal(container, playerPin) {
-            let unsubscribePlayer;
-            let unsubscribeGameState;
-            
-            // Set up real-time listener for the player's picks and game state
-            unsubscribeGameState = onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (stateDoc) => {
-                const state = stateDoc.data() || { currentWeek: 1 };
-                const currentWeek = state.currentWeek;
-                
-                onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
-                    const players = playersSnapshot.docs.map(d => ({ id: d.id, ...d.data() })); // FIX: Get the document ID
-                    const player = players.find(p => p.pin === playerPin);
+            onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
+                const players = playersSnapshot.docs.map(d => ({ id: d.id, ...d.data() })); // Correctly get ID and data
+                const player = players.find(p => p.pin === playerPin);
 
-                    if (!player) {
-                         container.innerHTML = `<p class="text-red-500 text-center text-xl">Invalid player ID. Please check your link.</p>`;
-                         return;
-                    }
-                    
+                if (!player) {
+                     container.innerHTML = `<p class="text-red-500 text-center text-xl">Invalid player ID. Please check your link.</p>`;
+                     return;
+                }
+                
+                onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (stateDoc) => {
+                    const state = stateDoc.data() || { currentWeek: 1 };
+                    const currentWeek = state.currentWeek;
+
                     onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/picks`, `week_${currentWeek}`), (picksDoc) => {
                         const weeklyPicks = picksDoc.data() || {};
                         const playerPick = weeklyPicks[player.id];
