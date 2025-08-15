@@ -14,12 +14,12 @@
             color: #1f2937;
         }
     </style>
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDKs - These are essential for the app to work -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, writeBatch, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { writeBatch, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables for Firebase services and app state
@@ -119,7 +119,7 @@
         // Function to render the navigation links based on the current page
         function renderNav() {
             const nav = document.getElementById('main-nav');
-            if (!nav) {
+            if (!nav) { // Safety check to ensure the nav element exists
                 console.error('Navigation element not found.');
                 return;
             }
@@ -171,9 +171,9 @@
         // --- Page Render Functions ---
 
         function renderAdminPage(container) {
-            window.onSnapshot(window.doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (docSnapshot) => {
+            onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (docSnapshot) => {
                 const state = docSnapshot.data() || { currentWeek: 1 };
-                window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), (snapshot) => {
+                onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/players`), (snapshot) => {
                     const players = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                     
                     let playerListHtml = players.length > 0 ?
@@ -241,7 +241,7 @@
         }
 
         function renderPlayerPortal(container, playerPin) {
-            window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
+            onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
                 const players = playersSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                 const player = players.find(p => p.pin === playerPin);
 
@@ -250,11 +250,11 @@
                      return;
                 }
                 
-                window.onSnapshot(window.doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (stateDoc) => {
+                onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (stateDoc) => {
                     const state = stateDoc.data() || { currentWeek: 1 };
                     const currentWeek = state.currentWeek;
 
-                    window.onSnapshot(window.doc(window.db, `artifacts/${window.appId}/public/data/picks`, `week_${currentWeek}`), (picksDoc) => {
+                    onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/picks`, `week_${currentWeek}`), (picksDoc) => {
                         const weeklyPicks = picksDoc.data() || {};
                         const playerPick = weeklyPicks[player.id];
                         const isWeekLocked = state.weeklyResults && state.weeklyResults[`week_${currentWeek}`];
@@ -321,6 +321,7 @@
                                 const teamPick = document.getElementById('team-pick').value;
                                 const pickStatus = document.querySelector('input[name="pick-status"]:checked').value;
                                 
+                                // Call the save function with the player ID from the current context
                                 window.savePlayerPick(player.id, teamPick, pickStatus);
                             });
                         }
@@ -330,7 +331,7 @@
         }
 
         function renderLeaderboardPage(container) {
-            window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), (snapshot) => {
+            onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/players`), (snapshot) => {
                 const players = snapshot.docs.map(d => d.data());
                 const sortedPlayers = [...players].sort((a, b) => b.totalPoints - a.totalPoints);
                 
@@ -365,11 +366,11 @@
         }
 
         function renderPicksHistoryPage(container) {
-             window.onSnapshot(window.doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (stateDoc) => {
+             onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (stateDoc) => {
                 const state = stateDoc.data() || { currentWeek: 1 };
-                window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
+                onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
                     const players = playersSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                    window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/picks`), (picksSnapshot) => {
+                    onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/picks`), (picksSnapshot) => {
                         const allPicks = {};
                         picksSnapshot.forEach(doc => {
                             allPicks[doc.id] = doc.data();
@@ -556,7 +557,7 @@
             } catch (e) {
                 console.error("Error starting next week: ", e);
             }
-        }
+            }
     </script>
 </body>
 </html>
