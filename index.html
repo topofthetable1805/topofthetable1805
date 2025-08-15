@@ -15,18 +15,30 @@
         }
     </style>
     <!-- Firebase SDKs - These are essential for the app to work -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, writeBatch, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+</head>
+<body class="p-6 md:p-10">
 
+    <!-- Main Navigation -->
+    <nav id="main-nav" class="flex justify-center md:justify-start items-center space-x-4 mb-8"></nav>
+
+    <!-- Main App Container -->
+    <div id="app-container" class="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-gray-200">
+        <!-- Content will be rendered here by JavaScript -->
+        <h1 class="text-3xl font-bold mb-6 text-center">Loading...</h1>
+    </div>
+
+    <!-- JavaScript logic -->
+    <script>
         // Global state variables
         let gameState = null;
         let players = [];
         let weeklyPicks = {};
         let currentPage = 'leaderboard';
         let currentPlayer = null;
-        
+
         // --- Firebase Setup ---
         const firebaseConfig = {
             apiKey: "AIzaSyCyt8u-3s0DnxRiqmmuOvDiGAsYza1XepE",
@@ -39,17 +51,25 @@
         };
         const appId = firebaseConfig.projectId;
 
-        let app;
-        let db;
-        let auth;
+        // Make sure the Firebase SDK is loaded before continuing
+        window.onload = function() {
+            if (typeof firebase === 'undefined') {
+                document.getElementById('app-container').innerHTML = `
+                    <div class="text-center text-red-600">
+                        <p class="text-xl font-bold">Error Loading Firebase</p>
+                        <p class="mt-2">The Firebase SDK failed to load. Please check your internet connection.</p>
+                    </div>
+                `;
+                return;
+            }
 
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            signInAnonymously(auth).then(() => {
+            const app = firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore.getFirestore(app);
+            const auth = firebase.auth.getAuth(app);
+
+            firebase.auth.signInAnonymously(auth).then(() => {
                 console.log("Signed in anonymously.");
-                setupDataListeners();
+                setupDataListeners(db);
                 handleUrlChange();
             }).catch((error) => {
                 console.error("Firebase Auth failed:", error);
@@ -60,15 +80,7 @@
                     </div>
                 `;
             });
-        } catch (e) {
-            console.error("Firebase initialization failed:", e);
-            document.getElementById('app-container').innerHTML = `
-                <div class="text-center text-red-600">
-                    <p class="text-xl font-bold">App Error</p>
-                    <p class="mt-2">Initialization failed. Please check the browser console for details.</p>
-                </div>
-            `;
-        }
+        };
 
         // --- Core Data & App Logic ---
         const TEAMS = [
@@ -79,18 +91,18 @@
             "West Ham United", "Wolverhampton Wanderers"
         ].sort();
 
-        function setupDataListeners() {
-            onSnapshot(doc(db, `artifacts/${appId}/public/data/game_state`, 'current_state'), (docSnapshot) => {
+        function setupDataListeners(db) {
+            firebase.firestore.onSnapshot(firebase.firestore.doc(db, `artifacts/${appId}/public/data/game_state`, 'current_state'), (docSnapshot) => {
                 gameState = docSnapshot.data() || { currentWeek: 1 };
                 renderApp();
             });
 
-            onSnapshot(collection(db, `artifacts/${appId}/public/data/players`), (snapshot) => {
+            firebase.firestore.onSnapshot(firebase.firestore.collection(db, `artifacts/${appId}/public/data/players`), (snapshot) => {
                 players = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderApp();
             });
             
-            onSnapshot(collection(db, `artifacts/${appId}/public/data/picks`), (snapshot) => {
+            firebase.firestore.onSnapshot(firebase.firestore.collection(db, `artifacts/${appId}/public/data/picks`), (snapshot) => {
                 const allPicks = {};
                 snapshot.forEach(doc => {
                     allPicks[doc.id] = doc.data();
@@ -125,6 +137,11 @@
 
         function renderNav() {
             const nav = document.getElementById('main-nav');
+            if (!nav) {
+                console.error('Navigation element not found.');
+                return;
+            }
+
             const params = new URLSearchParams(window.location.search);
             const isAdminPage = params.get('admin') === 'true';
             
@@ -380,13 +397,13 @@
             const pin = e.target.playerPin.value.trim();
 
             try {
-                const q = query(collection(db, `artifacts/${appId}/public/data/players`), where("pin", "==", pin));
-                const querySnapshot = await getDocs(q);
+                const q = firebase.firestore.query(firebase.firestore.collection(db, `artifacts/${appId}/public/data/players`), firebase.firestore.where("pin", "==", pin));
+                const querySnapshot = await firebase.firestore.getDocs(q);
                 if (!querySnapshot.empty) {
                     alert("A player with this PIN already exists. Please choose a different one.");
                     return;
                 }
-                await addDoc(collection(db, `artifacts/${appId}/public/data/players`), {
+                await firebase.firestore.addDoc(firebase.firestore.collection(db, `artifacts/${appId}/public/data/players`), {
                     name, pin, totalPoints: 0, homePicksUsed: [], awayPicksUsed: []
                 });
                 e.target.reset();
@@ -401,7 +418,7 @@
                 return;
             }
             try {
-                await deleteDoc(doc(db, `artifacts/${appId}/public/data/players`, playerId));
+                await firebase.firestore.deleteDoc(firebase.firestore.doc(db, `artifacts/${appId}/public/data/players`, playerId));
             } catch (e) {
                 console.error("Error removing player: ", e);
                 alert("An error occurred while removing the player. Check the console for details.");
@@ -414,8 +431,8 @@
             const pickStatus = e.target.pickStatus.value;
             
             try {
-                const playerRef = doc(db, `artifacts/${appId}/public/data/players`, currentPlayer.id);
-                const playerDoc = await getDoc(playerRef);
+                const playerRef = firebase.firestore.doc(db, `artifacts/${appId}/public/data/players`, currentPlayer.id);
+                const playerDoc = await firebase.firestore.getDoc(playerRef);
                 const player = playerDoc.data();
                 
                 if (pickStatus === 'home' && player.homePicksUsed.includes(teamPick)) {
@@ -427,8 +444,8 @@
                     return;
                 }
                 
-                const weeklyPicksRef = doc(db, `artifacts/${appId}/public/data/picks`, `week_${gameState.currentWeek}`);
-                await updateDoc(weeklyPicksRef, {
+                const weeklyPicksRef = firebase.firestore.doc(db, `artifacts/${appId}/public/data/picks`, `week_${gameState.currentWeek}`);
+                await firebase.firestore.updateDoc(weeklyPicksRef, {
                     [currentPlayer.id]: { team: teamPick, status: pickStatus }
                 }, { merge: true });
 
@@ -436,7 +453,7 @@
                     ? [...player.homePicksUsed, teamPick]
                     : [...player.awayPicksUsed, teamPick];
 
-                await updateDoc(playerRef, {
+                await firebase.firestore.updateDoc(playerRef, {
                     [`${pickStatus}PicksUsed`]: newUsedPicks
                 });
             } catch (e) {
@@ -465,11 +482,11 @@
                     }
                 }
                 
-                const playersSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/players`));
-                const weeklyPicksDoc = await getDoc(doc(db, `artifacts/${appId}/public/data/picks`, `week_${currentWeek}`));
+                const playersSnapshot = await firebase.firestore.getDocs(firebase.firestore.collection(db, `artifacts/${appId}/public/data/players`));
+                const weeklyPicksDoc = await firebase.firestore.getDoc(firebase.firestore.doc(db, `artifacts/${appId}/public/data/picks`, `week_${currentWeek}`));
                 const weeklyPicksForWeek = weeklyPicksDoc.data() || {};
                 
-                const batch = writeBatch(db);
+                const batch = firebase.firestore.writeBatch(db);
                 playersSnapshot.docs.forEach(playerDoc => {
                     const playerRef = playerDoc.ref;
                     const player = playerDoc.data();
@@ -487,7 +504,7 @@
                     });
                 });
 
-                const gameStateRef = doc(db, `artifacts/${appId}/public/data/game_state`, 'current_state');
+                const gameStateRef = firebase.firestore.doc(db, `artifacts/${appId}/public/data/game_state`, 'current_state');
                 batch.update(gameStateRef, {
                     currentWeek: currentWeek + 1,
                     [`weeklyResults.week_${currentWeek}`]: weeklyResults
@@ -500,8 +517,25 @@
             }
         };
 
-        // Initial render on page load
+        // Event listeners for forms (attached after initial render)
+        document.addEventListener('submit', (e) => {
+            if (e.target && e.target.id === 'add-player-form') {
+                addPlayer(e);
+            }
+            if (e.target && e.target.id === 'make-pick-form') {
+                savePlayerPick(e);
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', () => {
+            if (typeof firebase === 'undefined') {
+                document.getElementById('app-container').innerHTML = `
+                    <div class="text-center text-red-600">
+                        <p class="text-xl font-bold">Error Loading Firebase</p>
+                        <p class="mt-2">The Firebase SDK failed to load. Please check your internet connection.</p>
+                    </div>
+                `;
+            }
             handleUrlChange();
         });
     </script>
