@@ -42,33 +42,44 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         if (firebaseConfig.projectId) {
-            // Initialize Firebase
-            window.app = initializeApp(firebaseConfig);
-            window.db = getFirestore(window.app);
-            window.auth = getAuth(window.app);
+            try {
+                // Initialize Firebase
+                window.app = initializeApp(firebaseConfig);
+                window.db = getFirestore(window.app);
+                window.auth = getAuth(window.app);
 
-            // Handle authentication
-            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-            onAuthStateChanged(window.auth, async (user) => {
-                if (user) {
-                    window.userId = user.uid;
-                } else {
-                    if (initialAuthToken) {
-                        try {
-                            await signInWithCustomToken(window.auth, initialAuthToken);
-                        } catch (error) {
-                            console.error("Error signing in with custom token:", error);
+                // Handle authentication
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                onAuthStateChanged(window.auth, async (user) => {
+                    if (user) {
+                        window.userId = user.uid;
+                    } else {
+                        if (initialAuthToken) {
+                            try {
+                                await signInWithCustomToken(window.auth, initialAuthToken);
+                            } catch (error) {
+                                console.error("Error signing in with custom token:", error);
+                                await signInAnonymously(window.auth);
+                            }
+                        } else {
                             await signInAnonymously(window.auth);
                         }
-                    } else {
-                        await signInAnonymously(window.auth);
+                        window.userId = window.auth.currentUser.uid;
                     }
-                    window.userId = window.auth.currentUser.uid;
-                }
-                window.isAuthReady = true;
-                // Once authenticated, start the app's rendering logic
-                window.renderApp();
-            });
+                    window.isAuthReady = true;
+                    // Once authenticated, start the app's rendering logic
+                    window.renderApp();
+                });
+            } catch (e) {
+                console.error("Firebase initialization failed:", e);
+                document.getElementById('app-container').innerHTML = `
+                    <div class="text-center text-red-600">
+                        <p class="text-xl font-bold">App Error</p>
+                        <p class="mt-2">An error occurred while initializing Firebase. Please check the browser console for details.</p>
+                        <p class="mt-2 text-sm text-gray-500">Error: ${e.message}</p>
+                    </div>
+                `;
+            }
         } else {
             console.error("Firebase config is missing. Please set up Firebase.");
             document.getElementById('app-container').innerHTML = `
