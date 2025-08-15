@@ -1,21 +1,494 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Top of the Table 1805</title>
+    <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Custom styles for a cleaner look */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
             color: #1f2937;
         }
     </style>
+    <!-- React and ReactDOM CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX transformation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
 </head>
-<body>
+<body class="p-6 md:p-10">
+
     <div id="root"></div>
-    <!-- Load React App -->
-    <script type="module" src="./App.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
+        const { initializeApp } = firebase;
+        const { getAuth, signInAnonymously, onAuthStateChanged } = firebase.auth;
+        const { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, writeBatch, getDocs, getDoc } = firebase.firestore;
+
+        // --- Global App Variables and Firebase Setup ---
+        const TEAMS = [
+            "Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton & Hove Albion",
+            "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham", "Ipswich Town",
+            "Leeds United", "Liverpool", "Manchester City", "Manchester United",
+            "Newcastle United", "Nottingham Forest", "Tottenham Hotspur",
+            "West Ham United", "Wolverhampton Wanderers"
+        ].sort();
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCyt8u-3s0DnxRiqmmuOvDiGAsYza1XepE",
+            authDomain: "top-of-the-table-1805.firebaseapp.com",
+            databaseURL: "https://top-of-the-table-1805-default-rtdb.firebaseio.com",
+            projectId: "top-of-the-table-1805",
+            storageBucket: "top-of-the-table-1805.firebasestorage.app",
+            messagingSenderId: "293669572169",
+            appId: "1:293669572169:web:a4ad447422608b98187998"
+        };
+
+        const appId = firebaseConfig.projectId;
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const App = () => {
+            const [gameState, setGameState] = useState(null);
+            const [players, setPlayers] = useState([]);
+            const [weeklyPicks, setWeeklyPicks] = useState({});
+            const [currentPage, setCurrentPage] = useState('leaderboard');
+            const [currentPlayer, setCurrentPlayer] = useState(null);
+            const [isAuthReady, setIsAuthReady] = useState(false);
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [loadingError, setLoadingError] = useState(null);
+
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const playerPin = urlParams.get('playerid');
+                const adminMode = urlParams.get('admin') === 'true';
+                
+                if (playerPin) {
+                    setCurrentPage('playerPortal');
+                } else if (adminMode) {
+                    setCurrentPage('admin');
+                } else if (urlParams.get('page') === 'history') {
+                    setCurrentPage('history');
+                } else {
+                    setCurrentPage('leaderboard');
+                }
+
+                const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+                    if (!user) {
+                        try {
+                            await signInAnonymously(auth);
+                        } catch(e) {
+                            setLoadingError(`Authentication failed: ${e.message}`);
+                            return;
+                        }
+                    }
+                    setIsAuthReady(true);
+                });
+
+                return () => unsubscribeAuth();
+            }, []);
+
+            useEffect(() => {
+                if (!isAuthReady || loadingError) return;
+
+                const unsubscribeGameState = onSnapshot(doc(db, `artifacts/${appId}/public/data/game_state`, 'current_state'), (docSnapshot) => {
+                    setGameState(docSnapshot.data() || { currentWeek: 1 });
+                }, (error) => setLoadingError(`Firestore error: ${error.message}`));
+
+                const unsubscribePlayers = onSnapshot(collection(db, `artifacts/${appId}/public/data/players`), (snapshot) => {
+                    const playersWithIds = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    setPlayers(playersWithIds);
+                }, (error) => setLoadingError(`Firestore error: ${error.message}`));
+                
+                const unsubscribePicks = onSnapshot(collection(db, `artifacts/${appId}/public/data/picks`), (snapshot) => {
+                    const allPicks = {};
+                    snapshot.forEach(doc => {
+                        allPicks[doc.id] = doc.data();
+                    });
+                    setWeeklyPicks(allPicks);
+                }, (error) => setLoadingError(`Firestore error: ${error.message}`));
+
+                return () => {
+                    unsubscribeGameState();
+                    unsubscribePlayers();
+                    unsubscribePicks();
+                };
+            }, [isAuthReady, loadingError]);
+
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const playerPin = urlParams.get('playerid');
+                const adminMode = urlParams.get('admin') === 'true';
+
+                if (playerPin && players.length > 0) {
+                    const player = players.find(p => p.pin === playerPin);
+                    setCurrentPlayer(player);
+                }
+                setIsAdmin(adminMode);
+            }, [players]);
+
+            const renderPage = () => {
+                if (loadingError) {
+                    return (
+                        <div className="text-center text-red-600">
+                            <p className="text-xl font-bold">App Error</p>
+                            <p className="mt-2">{loadingError}</p>
+                        </div>
+                    );
+                }
+
+                if (!isAuthReady || !gameState) {
+                    return <h1 className="text-3xl font-bold mb-6 text-center">Loading...</h1>;
+                }
+
+                switch (currentPage) {
+                    case 'admin':
+                        if (!isAdmin) {
+                            return <p className="text-red-500 text-center text-xl">Access Denied: You must be an admin to view this page.</p>;
+                        }
+                        return <AdminPage />;
+                    case 'playerPortal':
+                        if (!currentPlayer) {
+                            return <p className="text-red-500 text-center text-xl">Invalid player ID. Please check your link.</p>;
+                        }
+                        return <PlayerPage />;
+                    case 'history':
+                        return <HistoryPage />;
+                    default:
+                        return <LeaderboardPage />;
+                }
+            };
+
+            const AdminPage = () => {
+                const currentWeek = gameState?.currentWeek || 1;
+
+                const handleAddPlayer = async (e) => {
+                    e.preventDefault();
+                    const name = e.target.playerName.value;
+                    const pin = e.target.playerPin.value;
+                    try {
+                        const q = query(collection(db, `artifacts/${appId}/public/data/players`), where("pin", "==", pin));
+                        const querySnapshot = await getDocs(q);
+                        if (!querySnapshot.empty) {
+                            alert("A player with this PIN already exists.");
+                            return;
+                        }
+                        await addDoc(collection(db, `artifacts/${appId}/public/data/players`), {
+                            name, pin, totalPoints: 0, homePicksUsed: [], awayPicksUsed: []
+                        });
+                        e.target.reset();
+                    } catch (e) {
+                        alert(`Error adding player: ${e.message}`);
+                        console.error("Error adding player: ", e);
+                    }
+                };
+
+                const handleRemovePlayer = async (id) => {
+                    if (window.confirm("Are you sure you want to remove this player?")) {
+                        try {
+                            await deleteDoc(doc(db, `artifacts/${appId}/public/data/players`, id));
+                        } catch (e) {
+                            alert(`Error removing player: ${e.message}`);
+                            console.error("Error removing player: ", e);
+                        }
+                    }
+                };
+
+                const handleStartNextWeek = async () => {
+                    const weeklyResults = {};
+                    let isComplete = true;
+                    TEAMS.forEach(team => {
+                        const selectEl = document.getElementById(`result-${team.replace(/\s/g, '-')}`);
+                        if (selectEl && selectEl.value) {
+                            weeklyResults[team] = selectEl.value;
+                        } else {
+                            isComplete = false;
+                        }
+                    });
+
+                    if (!isComplete) {
+                        if (!window.confirm("Not all results have been entered. Proceed anyway?")) {
+                            return;
+                        }
+                    }
+
+                    try {
+                        const batch = writeBatch(db);
+                        const playersSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/players`));
+                        const weeklyPicksDoc = await getDoc(doc(db, `artifacts/${appId}/public/data/picks`, `week_${currentWeek}`));
+                        const weeklyPicksForWeek = weeklyPicksDoc.data() || {};
+
+                        playersSnapshot.docs.forEach(playerDoc => {
+                            const player = playerDoc.data();
+                            let weekPoints = 0;
+                            const playerPick = weeklyPicksForWeek[playerDoc.id];
+                            if (playerPick) {
+                                const result = weeklyResults[playerPick.team];
+                                if (result === 'W') weekPoints = 3;
+                                else if (result === 'D') weekPoints = 1;
+                            }
+                            batch.update(playerDoc.ref, { totalPoints: player.totalPoints + weekPoints });
+                        });
+
+                        batch.update(doc(db, `artifacts/${appId}/public/data/game_state`, 'current_state'), {
+                            currentWeek: currentWeek + 1,
+                            weeklyResults: { [`week_${currentWeek}`]: weeklyResults }
+                        });
+
+                        await batch.commit();
+                    } catch (e) {
+                        alert(`Error starting next week: ${e.message}`);
+                        console.error("Error starting next week: ", e);
+                    }
+                };
+
+                return (
+                    <>
+                        <h2 className="text-2xl font-bold mb-4">Admin Portal - Week {currentWeek}</h2>
+                        <p className="text-sm text-gray-500 mb-6">Note: This page is only accessible via the URL parameter.</p>
+
+                        <div className="mb-8">
+                            <h3 className="text-xl font-semibold mb-2">Add New Player</h3>
+                            <form onSubmit={handleAddPlayer} className="flex flex-col md:flex-row gap-4 mb-4">
+                                <input type="text" id="playerName" name="playerName" placeholder="Player Name" className="p-2 border rounded-md shadow-sm flex-grow" required />
+                                <input type="text" id="playerPin" name="playerPin" placeholder="Unique PIN (e.g., 1234)" className="p-2 border rounded-md shadow-sm flex-grow" required />
+                                <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors">Add Player</button>
+                            </form>
+                            <div className="mt-4">
+                                <h3 className="text-xl font-semibold mb-2">Registered Players</h3>
+                                {players.length > 0 ? (
+                                    <ul>
+                                        {players.map(p => (
+                                            <li key={p.id} className="flex items-center justify-between p-2 my-1 bg-gray-100 rounded-lg">
+                                                <span>{p.name} (PIN: {p.pin})</span>
+                                                <button onClick={() => handleRemovePlayer(p.id)} className="text-red-500 hover:text-red-700 font-bold ml-4">Remove</button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-gray-500">No players registered yet.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <hr className="my-6 border-gray-300" />
+
+                        <div className="mb-8">
+                            <h3 className="text-xl font-semibold mb-2">Enter Weekly Results (Week {currentWeek})</h3>
+                            <div id="results-form-container" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {TEAMS.map(team => (
+                                    <div key={team} className="flex items-center space-x-2">
+                                        <label className="font-medium">{team}</label>
+                                        <select id={`result-${team.replace(/\s/g, '-')}`} className="p-2 border rounded-md shadow-sm flex-grow">
+                                            <option value="">-- Select Result --</option>
+                                            <option value="W">Win (W)</option>
+                                            <option value="D">Draw (D)</option>
+                                            <option value="L">Loss (L)</option>
+                                        </select>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-center">
+                            <button onClick={handleStartNextWeek} className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">Start Next Week & Calculate Points</button>
+                        </div>
+                    </>
+                );
+            };
+
+            const PlayerPage = () => {
+                const currentWeek = gameState?.currentWeek || 1;
+                const playerPick = weeklyPicks[`week_${currentWeek}`]?.[currentPlayer?.id];
+                const isWeekLocked = gameState?.weeklyResults?.[`week_${currentWeek}`];
+                const usedTeams = [...(currentPlayer?.homePicksUsed || []), ...(currentPlayer?.awayPicksUsed || [])];
+
+                const handleSubmitPick = async (e) => {
+                    e.preventDefault();
+                    const teamPick = e.target.teamPick.value;
+                    const pickStatus = e.target.pickStatus.value;
+                    
+                    try {
+                        const playerRef = doc(db, `artifacts/${appId}/public/data/players`, currentPlayer.id);
+                        const playerDoc = await getDoc(playerRef);
+                        const player = playerDoc.data();
+                        
+                        if (pickStatus === 'home' && player.homePicksUsed.includes(teamPick)) {
+                            alert(`You have already used ${teamPick} as a home pick.`);
+                            return;
+                        }
+                        if (pickStatus === 'away' && player.awayPicksUsed.includes(teamPick)) {
+                            alert(`You have already used ${teamPick} as an away pick.`);
+                            return;
+                        }
+                        
+                        const weeklyPicksRef = doc(db, `artifacts/${appId}/public/data/picks`, `week_${currentWeek}`);
+                        await updateDoc(weeklyPicksRef, {
+                            [currentPlayer.id]: { team: teamPick, status: pickStatus }
+                        }, { merge: true });
+
+                        const newUsedPicks = pickStatus === 'home'
+                            ? [...player.homePicksUsed, teamPick]
+                            : [...player.awayPicksUsed, teamPick];
+
+                        await updateDoc(playerRef, {
+                            [`${pickStatus}PicksUsed`]: newUsedPicks
+                        });
+                    } catch (e) {
+                        alert(`Error submitting pick: ${e.message}`);
+                        console.error("Error submitting pick: ", e);
+                    }
+                };
+
+                return (
+                    <>
+                        <h2 className="text-2xl font-bold mb-4">Welcome, {currentPlayer?.name}!</h2>
+                        {isWeekLocked ? (
+                            <p className="text-gray-600 text-lg">Picks for Week {currentWeek} have been locked by the commissioner.</p>
+                        ) : playerPick ? (
+                            <>
+                                <p className="text-green-600 text-lg font-semibold">Your pick for Week {currentWeek} has been saved!</p>
+                                <div className="mt-4 p-4 border rounded-lg bg-green-50">
+                                    <p className="font-medium">Team Picked: <span className="text-gray-800">{playerPick.team}</span></p>
+                                    <p className="font-medium">Pick Status: <span className="text-gray-800">{playerPick.status}</span></p>
+                                </div>
+                            </>
+                        ) : (
+                            <form onSubmit={handleSubmitPick} className="space-y-4">
+                                <h3 className="text-xl font-semibold mb-4">Make Your Pick for Week {currentWeek}</h3>
+                                <div>
+                                    <label htmlFor="team-pick" className="block font-medium mb-1">Select a Team</label>
+                                    <select id="team-pick" name="teamPick" className="w-full p-2 border rounded-md shadow-sm" required>
+                                        <option value="">-- Select Team --</option>
+                                        {TEAMS.filter(t => !usedTeams.includes(t)).map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block font-medium mb-1">Pick Status</label>
+                                    <div className="flex items-center space-x-4">
+                                        <label className="inline-flex items-center">
+                                            <input type="radio" name="pickStatus" value="home" className="form-radio" required />
+                                            <span className="ml-2">Home</span>
+                                        </label>
+                                        <label className="inline-flex items-center">
+                                            <input type="radio" name="pickStatus" value="away" className="form-radio" required />
+                                            <span className="ml-2">Away</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <button type="submit" className="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors">Submit Pick</button>
+                            </form>
+                        )}
+                    </>
+                );
+            };
+
+            const LeaderboardPage = () => {
+                const sortedPlayers = [...players].sort((a, b) => b.totalPoints - a.totalPoints);
+                return (
+                    <>
+                        <h2 className="text-2xl font-bold mb-4">Leaderboard</h2>
+                        <div className="overflow-x-auto shadow-md rounded-lg">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {sortedPlayers.length > 0 ? sortedPlayers.map((p, index) => (
+                                        <tr key={p.id || index} className={index % 2 === 0 ? 'bg-gray-100' : 'bg-white'}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.totalPoints}</td>
+                                        </tr>
+                                    )) : (
+                                        <tr><td colSpan="3" className="text-center py-4 text-gray-500">No players on the leaderboard yet.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                );
+            };
+
+            const HistoryPage = () => {
+                const picksHtml = [];
+                for (let week = 1; week < (gameState?.currentWeek || 1); week++) {
+                    const weeklyPicksForWeek = weeklyPicks[`week_${week}`];
+                    const weeklyResultsForWeek = gameState?.weeklyResults?.[`week_${week}`];
+
+                    if (weeklyPicksForWeek) {
+                        const picksForThisWeek = players.map(player => {
+                            const playerPick = weeklyPicksForWeek[player.id];
+                            if (!playerPick) return null;
+                            
+                            const pickResult = weeklyResultsForWeek ? weeklyResultsForWeek[playerPick.team] : null;
+                            const pickPoints = pickResult === 'W' ? 3 : pickResult === 'D' ? 1 : 0;
+
+                            return (
+                                <div key={player.id} className="bg-gray-50 p-3 rounded-md">
+                                    <p className="font-bold">{player.name}'s Pick:</p>
+                                    <p className="ml-4">Team: {playerPick.team} <span className="font-medium">({playerPick.status})</span></p>
+                                    <p className="ml-4">Result: <span className={`font-medium text-${pickResult === 'W' ? 'green' : pickResult === 'D' ? 'yellow' : 'red'}-600`}>({pickResult || 'Pending'})</span> - Points: {pickResult ? pickPoints : '0'}</p>
+                                </div>
+                            );
+                        }).filter(Boolean);
+
+                        if (picksForThisWeek.length > 0) {
+                            picksHtml.push(
+                                <div key={week} className="mb-6 p-4 border rounded-lg shadow-sm">
+                                    <h3 className="text-xl font-semibold mb-2">Match Week {week}</h3>
+                                    <div className="space-y-4">{picksForThisWeek}</div>
+                                </div>
+                            );
+                        }
+                    }
+                }
+                
+                return (
+                    <>
+                        <h2 className="text-2xl font-bold mb-4">Picks History</h2>
+                        <div className="space-y-6">
+                            {picksHtml.length > 0 ? picksHtml : <p className="text-center text-gray-500">No picks have been made yet.</p>}
+                        </div>
+                    </>
+                );
+            };
+
+            return (
+                <div className="p-6 md:p-10">
+                    <nav className="flex justify-center md:justify-start items-center space-x-4 mb-8">
+                        <a href="?" className="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Leaderboard</a>
+                        <a href="?page=history" className="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Picks History</a>
+                        {isAdmin && <a href="?admin=true" className="text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Admin Portal</a>}
+                    </nav>
+                    <div id="app-container" className="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-gray-200">
+                        {renderPage()}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+    </script>
 </body>
 </html>
