@@ -14,12 +14,12 @@
             color: #1f2937;
         }
     </style>
-    <!-- Firebase SDKs - These are essential for the app to work -->
+    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { writeBatch, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, writeBatch, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables for Firebase services and app state
@@ -39,7 +39,7 @@
           messagingSenderId: "293669572169",
           appId: "1:293669572169:web:a4ad447422608b98187998"
         };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const appId = "default-app-id"; // This is a fallback value. It is not used in your code.
 
         if (firebaseConfig.projectId) {
             try {
@@ -49,23 +49,11 @@
                 window.auth = getAuth(window.app);
 
                 // Handle authentication
-                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                 onAuthStateChanged(window.auth, async (user) => {
-                    if (user) {
-                        window.userId = user.uid;
-                    } else {
-                        if (initialAuthToken) {
-                            try {
-                                await signInWithCustomToken(window.auth, initialAuthToken);
-                            } catch (error) {
-                                console.error("Error signing in with custom token:", error);
-                                await signInAnonymously(window.auth);
-                            }
-                        } else {
-                            await signInAnonymously(window.auth);
-                        }
-                        window.userId = window.auth.currentUser.uid;
+                    if (!user) {
+                        await signInAnonymously(window.auth);
                     }
+                    window.userId = window.auth.currentUser.uid;
                     window.isAuthReady = true;
                     // Once authenticated, start the app's rendering logic
                     window.renderApp();
@@ -90,8 +78,7 @@
             `;
         }
 
-        // Expose Firebase and utility functions to the global scope for use in the app's script
-        window.getFirestore = getFirestore;
+        // Expose Firestore functions to the global scope for use in the other script tag
         window.doc = doc;
         window.onSnapshot = onSnapshot;
         window.collection = collection;
@@ -103,6 +90,7 @@
         window.writeBatch = writeBatch;
         window.getDocs = getDocs;
         window.getDoc = getDoc;
+        window.appId = appId;
     </script>
 
     <!-- Main Navigation -->
@@ -115,7 +103,7 @@
     </div>
 
     <!-- JavaScript logic -->
-    <script type="module">
+    <script>
         // --- Data Initialization and Management ---
 
         const TEAMS = [
@@ -131,7 +119,7 @@
         // Function to render the navigation links based on the current page
         function renderNav() {
             const nav = document.getElementById('main-nav');
-            if (!nav) { // Safety check to ensure the nav element exists
+            if (!nav) {
                 console.error('Navigation element not found.');
                 return;
             }
@@ -149,7 +137,6 @@
         // Main function to render the correct page based on URL parameters
         window.renderApp = async function() {
             if (!window.isAuthReady) {
-                // Wait for auth to be ready before rendering anything
                 return;
             }
             
@@ -158,23 +145,19 @@
             const page = params.get('page');
             const isAdminPage = params.get('admin') === 'true';
 
-            // Render navigation first
             renderNav();
 
-            // Handle Admin Page
             if (isAdminPage) {
                 renderAdminPage(appContainer);
                 return;
             }
 
-            // Handle Player Portal
             if (params.get('playerid')) {
                 const playerPin = params.get('playerid');
                 renderPlayerPortal(appContainer, playerPin);
                 return;
             }
 
-            // Handle Public Pages
             switch (page) {
                 case 'history':
                     renderPicksHistoryPage(appContainer);
@@ -187,12 +170,10 @@
 
         // --- Page Render Functions ---
 
-        // Renders the Admin Page
         function renderAdminPage(container) {
-            // Set up real-time listeners for players and game state
-            onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (docSnapshot) => {
+            window.onSnapshot(window.doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (docSnapshot) => {
                 const state = docSnapshot.data() || { currentWeek: 1 };
-                onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/players`), (snapshot) => {
+                window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), (snapshot) => {
                     const players = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                     
                     let playerListHtml = players.length > 0 ?
@@ -246,7 +227,6 @@
                         </div>
                     `;
 
-                    // Attach event listener for the Add Player form
                     const addPlayerForm = document.getElementById('add-player-form');
                     if (addPlayerForm) {
                         addPlayerForm.addEventListener('submit', function(e) {
@@ -260,10 +240,9 @@
             });
         }
 
-        // Renders the Player Portal
         function renderPlayerPortal(container, playerPin) {
-            onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
-                const players = playersSnapshot.docs.map(d => ({ id: d.id, ...d.data() })); // Correctly get ID and data
+            window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
+                const players = playersSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                 const player = players.find(p => p.pin === playerPin);
 
                 if (!player) {
@@ -271,11 +250,11 @@
                      return;
                 }
                 
-                onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (stateDoc) => {
+                window.onSnapshot(window.doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (stateDoc) => {
                     const state = stateDoc.data() || { currentWeek: 1 };
                     const currentWeek = state.currentWeek;
 
-                    onSnapshot(doc(window.db, `artifacts/${window.appId}/public/data/picks`, `week_${currentWeek}`), (picksDoc) => {
+                    window.onSnapshot(window.doc(window.db, `artifacts/${window.appId}/public/data/picks`, `week_${currentWeek}`), (picksDoc) => {
                         const weeklyPicks = picksDoc.data() || {};
                         const playerPick = weeklyPicks[player.id];
                         const isWeekLocked = state.weeklyResults && state.weeklyResults[`week_${currentWeek}`];
@@ -298,7 +277,6 @@
                                 <p class="mt-4 text-gray-600">The commissioner will enter results soon. You can view the leaderboard or picks history from the main page.</p>
                             `;
                         } else {
-                            // Generate team options, excluding teams already picked by the player
                             const usedTeams = [...player.homePicksUsed, ...player.awayPicksUsed];
                             const teamsOptions = TEAMS.filter(t => !usedTeams.includes(t))
                                                             .map(t => `<option value="${t}">${t}</option>`).join('');
@@ -313,4 +291,272 @@
                                             ${teamsOptions}
                                         </select>
                                     </div>
-                                    <d
+                                    <div>
+                                        <label class="block font-medium mb-1">Pick Status</label>
+                                        <div class="flex items-center space-x-4">
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="pick-status" value="home" class="form-radio" required>
+                                                <span class="ml-2">Home</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="pick-status" value="away" class="form-radio" required>
+                                                <span class="ml-2">Away</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors">Submit Pick</button>
+                                </form>
+                            `;
+                        }
+
+                        container.innerHTML = `
+                            <h2 class="text-2xl font-bold mb-4">Welcome, ${player.name}!</h2>
+                            ${contentHtml}
+                        `;
+
+                        const pickForm = document.getElementById('make-pick-form');
+                        if (pickForm) {
+                            pickForm.addEventListener('submit', function(e) {
+                                e.preventDefault();
+                                const teamPick = document.getElementById('team-pick').value;
+                                const pickStatus = document.querySelector('input[name="pick-status"]:checked').value;
+                                
+                                window.savePlayerPick(player.id, teamPick, pickStatus);
+                            });
+                        }
+                    });
+                });
+            });
+        }
+
+        function renderLeaderboardPage(container) {
+            window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), (snapshot) => {
+                const players = snapshot.docs.map(d => d.data());
+                const sortedPlayers = [...players].sort((a, b) => b.totalPoints - a.totalPoints);
+                
+                const tableRows = sortedPlayers.length > 0 ?
+                    sortedPlayers.map((player, index) => `
+                        <tr class="${index % 2 === 0 ? 'bg-gray-100' : 'bg-white'}">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${index + 1}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${player.name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${player.totalPoints}</td>
+                        </tr>
+                    `).join('') :
+                    `<tr><td colspan="3" class="text-center py-4 text-gray-500">No players on the leaderboard yet.</td></tr>`;
+
+                container.innerHTML = `
+                    <h2 class="text-2xl font-bold mb-4">Leaderboard</h2>
+                    <div class="overflow-x-auto shadow-md rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Points</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+        }
+
+        function renderPicksHistoryPage(container) {
+             window.onSnapshot(window.doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state'), (stateDoc) => {
+                const state = stateDoc.data() || { currentWeek: 1 };
+                window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
+                    const players = playersSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    window.onSnapshot(window.collection(window.db, `artifacts/${window.appId}/public/data/picks`), (picksSnapshot) => {
+                        const allPicks = {};
+                        picksSnapshot.forEach(doc => {
+                            allPicks[doc.id] = doc.data();
+                        });
+                        
+                        const picksHtml = [];
+                        for (let week = 1; week <= state.currentWeek; week++) {
+                            const weeklyPicks = allPicks[`week_${week}`];
+                            const weeklyResults = state.weeklyResults && state.weeklyResults[`week_${week}`];
+
+                            if (weeklyPicks) {
+                                picksHtml.push(`
+                                    <div class="mb-6 p-4 border rounded-lg shadow-sm">
+                                        <h3 class="text-xl font-semibold mb-2">Match Week ${week}</h3>
+                                        <div class="space-y-4">
+                                `);
+                                
+                                let hasPicksForWeek = false;
+                                players.forEach(player => {
+                                    const playerPick = weeklyPicks[player.id];
+                                    if (playerPick) {
+                                        hasPicksForWeek = true;
+                                        const pickResult = weeklyResults ? weeklyResults[playerPick.team] : null;
+                                        const pickPoints = pickResult === 'W' ? 3 : pickResult === 'D' ? 1 : 0;
+
+                                        picksHtml.push(`
+                                            <div class="bg-gray-50 p-3 rounded-md">
+                                                <p class="font-bold">${player.name}'s Pick:</p>
+                                                <p class="ml-4">
+                                                    Team: ${playerPick.team} 
+                                                    <span class="font-medium">(${playerPick.status})</span>
+                                                </p>
+                                                <p class="ml-4">
+                                                    Result: <span class="font-medium text-${pickResult === 'W' ? 'green' : pickResult === 'D' ? 'yellow' : 'red'}-600">(${pickResult || 'Pending'})</span> -
+                                                    Points: ${pickResult ? pickPoints : '0'}
+                                                </p>
+                                            </div>
+                                        `);
+                                    }
+                                });
+
+                                if (!hasPicksForWeek) {
+                                    picksHtml.push(`<p class="text-gray-500 ml-4">No picks were made this week.</p>`);
+                                }
+
+                                picksHtml.push(`</div></div>`);
+                            }
+                        }
+
+                        container.innerHTML = `
+                            <h2 class="text-2xl font-bold mb-4">Picks History</h2>
+                            <div class="space-y-6">
+                                ${picksHtml.join('') || '<p class="text-center text-gray-500">No picks have been made yet.</p>'}
+                            </div>
+                        `;
+                    });
+                });
+            });
+        }
+
+
+        // --- Data Manipulation Functions ---
+
+        window.addPlayer = async function(name, pin) {
+            try {
+                const q = window.query(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), window.where("pin", "==", pin));
+                const querySnapshot = await window.getDocs(q);
+                if (!querySnapshot.empty) {
+                     alert("A player with this PIN already exists. Please choose a different one.");
+                     return;
+                }
+                await window.addDoc(window.collection(window.db, `artifacts/${window.appId}/public/data/players`), {
+                    name: name,
+                    pin: pin,
+                    totalPoints: 0,
+                    homePicksUsed: [],
+                    awayPicksUsed: []
+                });
+            } catch (e) {
+                console.error("Error adding player: ", e);
+            }
+        }
+
+        window.removePlayer = async function(playerId) {
+            if (!confirm("Are you sure you want to remove this player? This action cannot be undone.")) {
+                return;
+            }
+            try {
+                await window.deleteDoc(window.doc(window.db, `artifacts/${window.appId}/public/data/players`, playerId));
+            } catch (e) {
+                console.error("Error removing player: ", e);
+            }
+        }
+
+        window.savePlayerPick = async function(playerId, teamPick, pickStatus) {
+            try {
+                const playerRef = window.doc(window.db, `artifacts/${window.appId}/public/data/players`, playerId);
+                const playerDoc = await window.getDoc(playerRef);
+                const player = playerDoc.data();
+                
+                if (pickStatus === 'home' && player.homePicksUsed.includes(teamPick)) {
+                     alert(`You have already used ${teamPick} as a home pick.`);
+                    return;
+                }
+                if (pickStatus === 'away' && player.awayPicksUsed.includes(teamPick)) {
+                     alert(`You have already used ${teamPick} as an away pick.`);
+                    return;
+                }
+                
+                const gameStateRef = window.doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state');
+                const gameStateDoc = await window.getDoc(gameStateRef);
+                const currentWeek = gameStateDoc.data()?.currentWeek || 1;
+                const weeklyPicksRef = window.doc(window.db, `artifacts/${window.appId}/public/data/picks`, `week_${currentWeek}`);
+                
+                await window.updateDoc(weeklyPicksRef, {
+                    [playerId]: { team: teamPick, status: pickStatus }
+                }, { merge: true });
+
+                const newUsedPicks = pickStatus === 'home'
+                    ? [...player.homePicksUsed, teamPick]
+                    : [...player.awayPicksUsed, teamPick];
+
+                await window.updateDoc(playerRef, {
+                    [`${pickStatus}PicksUsed`]: newUsedPicks
+                });
+
+            } catch (e) {
+                console.error("Error saving player pick: ", e);
+            }
+        }
+
+        window.startNextWeek = async function() {
+            try {
+                const gameStateRef = window.doc(window.db, `artifacts/${window.appId}/public/data/game_state`, 'current_state');
+                const gameStateDoc = await window.getDoc(gameStateRef);
+                const currentWeek = gameStateDoc.data()?.currentWeek || 1;
+
+                const weeklyResults = {};
+                let isResultsComplete = true;
+                TEAMS.forEach(team => {
+                    const selectEl = document.getElementById(`result-${team.replace(/\s/g, '-')}`);
+                    if (selectEl && selectEl.value) {
+                        weeklyResults[team] = selectEl.value;
+                    } else {
+                        isResultsComplete = false;
+                    }
+                });
+
+                if (!isResultsComplete) {
+                    if (!confirm("Not all team results have been entered. Do you want to proceed anyway? Players with picks for unentered teams will get 0 points.")) {
+                        return;
+                    }
+                }
+                
+                const playersSnapshot = await window.getDocs(window.collection(window.db, `artifacts/${window.appId}/public/data/players`));
+                const weeklyPicksDoc = await window.getDoc(window.doc(window.db, `artifacts/${window.appId}/public/data/picks`, `week_${currentWeek}`));
+                const weeklyPicks = weeklyPicksDoc.data() || {};
+                
+                const batch = window.writeBatch(window.db);
+                playersSnapshot.forEach(playerDoc => {
+                    const playerRef = playerDoc.ref;
+                    const player = playerDoc.data();
+                    let weekPoints = 0;
+                    const playerPick = weeklyPicks[playerDoc.id];
+
+                    if (playerPick) {
+                        const pickResult = weeklyResults[playerPick.team];
+                        if (pickResult === 'W') weekPoints += 3;
+                        else if (pickResult === 'D') weekPoints += 1;
+                    }
+                    
+                    batch.update(playerRef, {
+                        totalPoints: player.totalPoints + weekPoints
+                    });
+                });
+
+                batch.update(gameStateRef, {
+                    currentWeek: currentWeek + 1,
+                    weeklyResults: { [`week_${currentWeek}`]: weeklyResults }
+                });
+
+                await batch.commit();
+
+            } catch (e) {
+                console.error("Error starting next week: ", e);
+            }
+        }
+    </script>
+</body>
+</html>
