@@ -125,16 +125,17 @@
 
         // --- Core Application Logic ---
 
-        // Function to render the navigation links
-        function renderNav(isAdminPage) {
+        // Function to render the navigation links based on the current page
+        function renderNav() {
             const nav = document.getElementById('main-nav');
-            if (nav) {
-                nav.innerHTML = `
-                    <a href="?" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Leaderboard</a>
-                    <a href="?page=history" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Picks History</a>
-                    ${isAdminPage ? `<a href="?admin=true" class="text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Admin Portal</a>` : ''}
-                `;
-            }
+            const params = new URLSearchParams(window.location.search);
+            const isAdminPage = params.get('admin') === 'true';
+            
+            nav.innerHTML = `
+                <a href="?" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Leaderboard</a>
+                <a href="?page=history" class="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Picks History</a>
+                ${isAdminPage ? `<a href="?admin=true" class="text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-medium shadow-md transition-colors">Admin Portal</a>` : ''}
+            `;
         }
 
         // Main function to render the correct page based on URL parameters
@@ -150,7 +151,7 @@
             const isAdminPage = params.get('admin') === 'true';
 
             // Render navigation first
-            renderNav(isAdminPage);
+            renderNav();
 
             // Handle Admin Page
             if (isAdminPage) {
