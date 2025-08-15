@@ -108,7 +108,7 @@
 
         const TEAMS = [
             "Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton & Hove Albion",
-            "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham", "Ipswich Town",
+            "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham", "Sunderland",
             "Leeds United", "Liverpool", "Manchester City", "Manchester United",
             "Newcastle United", "Nottingham Forest", "Tottenham Hotspur",
             "West Ham United", "Wolverhampton Wanderers"
@@ -321,7 +321,6 @@
                                 const teamPick = document.getElementById('team-pick').value;
                                 const pickStatus = document.querySelector('input[name="pick-status"]:checked').value;
                                 
-                                // Call the save function with the player ID from the current context
                                 window.savePlayerPick(player.id, teamPick, pickStatus);
                             });
                         }
