@@ -271,7 +271,7 @@
                 const currentWeek = state.currentWeek;
                 
                 onSnapshot(collection(window.db, `artifacts/${window.appId}/public/data/players`), (playersSnapshot) => {
-                    const players = playersSnapshot.docs.map(d => d.data());
+                    const players = playersSnapshot.docs.map(d => ({ id: d.id, ...d.data() })); // FIX: Get the document ID
                     const player = players.find(p => p.pin === playerPin);
 
                     if (!player) {
